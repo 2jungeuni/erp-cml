@@ -1,0 +1,2 @@
+erp_com
+-DCATKIN_DEVEL_PREFIX=/home/jelee/erp_cml/devel -DCMAKE_INSTALL_PREFIX=/home/jelee/erp_cml/install -G Unix Makefiles
