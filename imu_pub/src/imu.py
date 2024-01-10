@@ -74,17 +74,10 @@ class ImuReader:
         while not rospy.is_shutdown():
             if self.ser.in_waiting > 0:
                 line = self.ser.readline().decode('ascii', errors='ignore').rstrip()
-                try:
-                    imu_msg = self.parse_imu_data(line)
-                    if imu_msg is not None:
-                        self.imu_pub.publish(imu_msg)
-                        rospy.loginfo(imu_msg)
-                except ValueError as e:
-                    pass
-                    # rospy.logwarn("ValueError encountered while parsing IMU data: {}".format(e))
-                    # if self.last_valid_imu_msg is not None:
-                    #     rospy.loginfo("Publishing the last valid IMU message instead.")
-                    #     self.imu_pub.publish(self.last_valid_imu_msg)
+                imu_msg = self.parse_imu_data(line)
+                if imu_msg is not None:
+                    self.imu_pub.publish(imu_msg)
+                    rospy.loginfo(imu_msg)
             rospy.sleep(0.02)  # 10Hz
 
 
