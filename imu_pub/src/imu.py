@@ -8,7 +8,7 @@ class ImuReader:
         self.serial_port = serial_port
         self.baud_rate = baud_rate
         self.ser = serial.Serial(self.serial_port, self.baud_rate, timeout=1)
-        self.imu_pub = rospy.Publisher('imu_data', Imu, queue_size=10)
+        self.imu_pub = rospy.Publisher('imu/data', Imu, queue_size=10)
 
     def parse_imu_data(self, data):
         if '*' in data:
