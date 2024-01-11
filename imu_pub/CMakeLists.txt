@@ -16,5 +16,6 @@ include_directories(
 
 catkin_install_python(PROGRAMS
   src/imu.py
+  src/imu_old.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
