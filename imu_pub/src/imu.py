@@ -39,10 +39,9 @@ class ImuReader:
             imu_msg.angular_velocity.y = float(parts[9])
             imu_msg.angular_velocity.z = float(parts[10])
 
-            # 가속도와 각속도의 공분산은 알려지지 않았으므로 기본값을 사용합니다.
-            imu_msg.linear_acceleration_covariance = [-1 if i == 0 else 0 for i in range(9)]
-            imu_msg.angular_velocity_covariance = [-1 if i == 0 else 0 for i in range(9)]
-            imu_msg.orientation_covariance = [-1 if i == 0 else 0 for i in range(9)]
+            imu_msg.linear_acceleration_covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            imu_msg.angular_velocity_covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            imu_msg.orientation_covariance = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             self.imu_pub.publish(imu_msg)
 
