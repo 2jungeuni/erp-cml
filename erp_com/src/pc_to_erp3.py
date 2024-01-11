@@ -8,8 +8,6 @@ import struct
 
 PORT = '/dev/ttyUSB0'                   # port number
 BAUDRATE = 115200                       # baudrate
-ERPS = serial.Serial(PORT, BAUDRATE)
-STAR_BITS = "535458"
 
 
 class ERPHandler:
