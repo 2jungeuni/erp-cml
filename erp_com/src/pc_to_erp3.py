@@ -18,11 +18,11 @@ class ERPHandler:
         rospy.loginfo("serial %s connected", PORT)
 
         rospy.Subscriber("/erp42_command", Cmd, self.packet_send_callback)
-        self.steer = 0
-        self.speed = 0
-        self.brake = 0
-        self.gear = 0
-        self.e_stop = 0
+        self.e_stop = 0 # 1. bool  | 0: off, 1: on
+        self.gear = 0   # 2. uint8 | 0: fw, 1: natural, 2: back
+        self.speed = 0  # 3. uint8 | 0 ~ 200 [kph * 10, 최대 20kph]? -> 6이면 0.6km/h
+        self.steer = 0  # 4. int32 | -2000 ~ 2000 (-27.77 ~ 27.77), right: +
+        self.brake = 0  # 5. uint8 | 1->0: no braking, 33->200: full braking
         self.alive = 0
 
         
@@ -40,8 +40,8 @@ class ERPHandler:
         if self.alive == 256:
             self.alive = 0
 
-        print("[SEND] steer: ", self.packet.steer, " | speed: ", self.packet.speed, 
-              " | brake: ", self.packet.brake, " | gear: ", self.packet.gear)
+        print("[SEND] steer: ", self.steer, " | speed: ", self.speed, 
+              " | brake: ", self.brake, " | gear: ", self.gear)
 
 
     def ErpMsg2Packet(self):
