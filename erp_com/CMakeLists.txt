@@ -164,6 +164,7 @@ catkin_install_python(PROGRAMS
   src/listener.py
   src/erp_to_pc.py
   src/pc_to_erp.py
+  src/pc_to_erp3.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
