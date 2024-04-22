@@ -37,7 +37,7 @@ class ERPHandler:
               "degree | speed: ", str(msg.speed).ljust(3),
               "kph | brake: ", str(msg.brake).ljust(3),
               " | gear: ", str(msg.gear).ljust(1),
-              " | encoder: ",str(msg.encoder))
+              " | encoder: ", str(msg.encoder))
         self.msg_pub.publish(msg)
 
     
