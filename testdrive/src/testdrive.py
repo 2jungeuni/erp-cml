@@ -32,12 +32,14 @@ class ERPtestdrive:
         msg.brake = 100
         msg.speed = 0
         msg.steer = 0
+        print(self.encoder)
         if self.e_stop == 0: # if emergency stop is not working
             if self.gear == 0: # if gear is on front
-                if self.encoder <= 100: # while car drives about 1.2m
+                if self.encoder <= -100: # while car drives about 1.2m
                     msg.brake = 0
-                    msg.speed = 6
-                    msg.steer = 0
+                    msg.speed = 20
+                    # msg.steer = 1000
+                    # print('a')
                     # convert deg or rad to integer btw -2000 ~ 2000
         self.msg_pub.publish(msg)
 
