@@ -1,10 +1,11 @@
 # ros
 import rospy
 import serial
-from std_msgs.msg import UInt8, Bool, Int32
+from std_msgs.msg import UInt8, Bool, Int32, String
 
 # built-in
 import struct
+import string
 
 PORT = '/dev/ttyUSB0'                   # port number
 BAUDRATE = 115200                       # baudrate
@@ -33,30 +34,27 @@ class ERPHandler:
 
 
     def e_stop_callback(self, data):
-        self.e_stop = data
+        self.e_stop = data.data
 
     def gear_callback(self, data):
-        self.gear = int(data)
-        # self.gear = data          # 위에 성공하면 주석처리 부분도 동작하는지 테스트
+        self.gear = data.data
 
     def speed_callback(self, data):
-        self.speed = int(data)
-        # self.speed = data
+        self.speed = data.data
 
     def steer_callback(self, data):
-        self.steer = int(data)
-        # self.steer = data
+        self.steer = data.data
 
     def brake_callback(self, data):
-        self.brake = int(data)
-        # self.brake = data
+        self.brake = data.data
 
 
     def pc_to_erp(self):
         header = "STX".encode()
         tail = "\r\n".encode()
         data = struct.pack(
-            ">BBBHhBB", 1,
+            ">BBBHhBB",
+            1,
             self.e_stop,
             self.gear,
             self.speed,

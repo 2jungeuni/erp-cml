@@ -21,16 +21,18 @@ class ERPtestdrive:
 
 
     def e_stop_update(self, data):
-        self.e_stop = data
+        self.e_stop = data.data
 
 
     def encoder_update(self, data):  # testing without camera
-        self.encoder = data
+        # print("a")
+        self.encoder = data.data
         brake = 100
-        speed, steer = 0
+        speed = 0
+        steer = 0
         print("encoder: ", self.encoder)
         if self.e_stop == 0: # if emergency stop is not working
-            if self.encoder <= -100: # while car drives about 1.2m
+            if self.encoder <= -200: # while car drives about 1.2m
                 brake = 0
                 speed = 20
                 steer = 10
@@ -51,7 +53,8 @@ class ERPtestdrive:
 
     def testdrive(self, data):
         brake = 100
-        speed, steer = 0
+        speed = 0
+        steer = 0
         if self.e_stop == 0: # if emergency stop is not working
             if self.encoder <= 100: # while car drives about 1.2m
                 error = data.point.y
