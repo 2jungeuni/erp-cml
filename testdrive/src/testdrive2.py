@@ -25,7 +25,6 @@ class ERPtestdrive:
 
 
     def encoder_update(self, data):  # testing without camera
-        # print("a")
         self.encoder = data.data
         brake = 100
         speed = 0

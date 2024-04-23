@@ -1,11 +1,10 @@
 # ros
 import rospy
 import serial
-from std_msgs.msg import UInt8, Bool, Int32, String
+from std_msgs.msg import UInt8, Bool, Int32
 
 # built-in
 import struct
-import string
 
 PORT = '/dev/ttyUSB0'                   # port number
 BAUDRATE = 115200                       # baudrate
