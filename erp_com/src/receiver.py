@@ -8,6 +8,7 @@ import struct
 import numpy as np
 
 PORT = '/dev/ttyUSB0'                   # port number
+# PORT = '/dev/erp42'                   # port number
 BAUDRATE = 115200                       # baudrate
 STAR_BITS = "535458"
 

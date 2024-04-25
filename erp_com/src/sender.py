@@ -7,6 +7,7 @@ from std_msgs.msg import UInt8, Bool, Int32
 import struct
 
 PORT = '/dev/ttyUSB0'                   # port number
+# PORT = '/dev/erp42'                   # port number
 BAUDRATE = 115200                       # baudrate
 
 
