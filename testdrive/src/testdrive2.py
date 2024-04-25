@@ -64,8 +64,8 @@ class ERPtestdrive:
                 speed = 20
                 target_x = data.point.x  # 차량의 원점 기준 얼마나 앞의 지점을 기준으로 삼을지
                 delta_y = -data.point.y
-                # Ld = np.sqrt(target_x^2 + delta_y^2)
-                Ld = 1
+                Ld = np.sqrt(target_x^2 + delta_y^2)
+                # Ld = 1
                 steer = np.rad2deg(np.arctan(2 * CAR_LENGTH * delta_y / (Ld^2)))
 
         speed_msg = UInt8()
