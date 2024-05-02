@@ -6,10 +6,11 @@ import numpy as np
 
 
 CAR_LENGTH = 2  # 차량의 뒷바퀴 중간부터 앞바퀴 중간까지의 거리
+initial_flag = True
 
 class ERPtestdrive:
     def __init__(self):
-        rospy.Subscriber("/current_pos", PointStamped, self.testdrive)
+        rospy.Subscriber("/reference_pos", PointStamped, self.testdrive)
         rospy.Subscriber("/state_e_stop", Bool, self.e_stop_update)
         rospy.Subscriber("/state_encoder", Int32, self.encoder_update)
         # rospy.Subscriber("/state_gear", UInt8, self.gear_callback)
@@ -29,6 +30,9 @@ class ERPtestdrive:
 
     def encoder_update(self, data):  # testing without camera
         self.encoder = data.data
+        if initial_flag:
+            self.initial_encoder = data.data
+            initial_flag = False
         # brake = 100
         # speed = 0
         # steer = 0
@@ -57,9 +61,8 @@ class ERPtestdrive:
         brake = 100
         speed = 0
         steer = 0
-        
         if self.e_stop == 0: # if emergency stop is not working
-            if self.encoder <= 100: # while car drives about 1.2m
+            if self.encoder <= self.initial_encoder + 100: # while car drives about 1.2m
                 brake = 0
                 speed = 20
                 target_x = data.point.x  # 차량의 원점 기준 얼마나 앞의 지점을 기준으로 삼을지
