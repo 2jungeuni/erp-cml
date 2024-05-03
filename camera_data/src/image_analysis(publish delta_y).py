@@ -10,7 +10,7 @@ import numpy as np
 
 
 # Define constants
-X_CAR = 200  # from front of car to reference point
+X_CAR = 200
 T_wdc =  np.array([[ 0,  0,  1, 0.0],     
                     [-1,  0,  0, 6.0],
                     [ 0, -1,  0, 68.0],
@@ -90,7 +90,7 @@ class PosePublisher:
         # Measure depth value and calculate delta_y value
         depth_value = cv_depth[y, x_center]
         if depth_value != 0:
-            delta_y = np.sqrt((depth_value**2) - (T_wdc[2, 3]**2) - (X_CAR**2))
+            delta_y = np.sqrt(depth_value**2 - T_wdc[2, 3]**2 - X_CAR**2)
         else:
             delta_y = 0
         
@@ -100,7 +100,7 @@ class PosePublisher:
         refpose = PointStamped()
         refpose.header.stamp = rospy.Time.now()
         refpose.header.frame_id = "world_cood"
-        refpose.point.x = X_CAR + T_wdc[0, 3]
+        refpose.point.x = X_CAR
         refpose.point.y = delta_y
         refpose.point.z = 0
         self.pos_pub.publish(refpose)
