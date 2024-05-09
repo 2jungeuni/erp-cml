@@ -74,7 +74,7 @@ class PosePublisher:
         img_pts_hom = rgb_intrinsic @ cam_pts[:3]
         x, y = img_pts_hom[:2] / img_pts_hom[2]
         x, y = int(x), int(y)
-        # print("x,y:", x, y)
+        # print("x, y:", x, y)
 
 
         # Calculate centerline(highest gradient)
@@ -86,7 +86,7 @@ class PosePublisher:
         indices = np.argsort(-1 * grad)[:4]
         x_center = np.mean(indices).astype(int)
         # print("1st x center: ", np.argmax(grad))
-        # print("xcenter:",x_center, y)
+        # print("x_center: ",x_center, y)
 
 
         # Measure depth value and calculate world coordinate of center pixel
@@ -107,6 +107,7 @@ class PosePublisher:
         refpose.point.y = delta_y
         refpose.point.z = 0
         self.pos_pub.publish(refpose)
+
 
         # Draw center image and plot it to visuallize
         cv2.circle(cv_rgb, (x_center, y), 2, (0, 0, 255), -1)

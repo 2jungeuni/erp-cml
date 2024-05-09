@@ -5,8 +5,8 @@ from geometry_msgs.msg import PointStamped
 import numpy as np
 
 
-CAR_LENGTH = 2  # 차량의 뒷바퀴 중간부터 앞바퀴 중간까지의 거리
-initial_flag = True
+CAR_LENGTH = 120  # 차량의 뒷바퀴 중간부터 앞바퀴 중간까지의 거리 (cm)
+
 
 class ERPtestdrive:
     def __init__(self):
@@ -22,6 +22,7 @@ class ERPtestdrive:
         self.steer_pub = rospy.Publisher("/steer", Int32, queue_size=3)
         self.e_stop = 0
         self.encoder = 0
+        self.initial_flag = True
 
 
     def e_stop_update(self, data):
@@ -30,9 +31,9 @@ class ERPtestdrive:
 
     def encoder_update(self, data):  # testing without camera
         self.encoder = data.data
-        if initial_flag:
+        if self.initial_flag:
             self.initial_encoder = data.data
-            initial_flag = False
+            self.initial_flag = False
         # brake = 100
         # speed = 0
         # steer = 0
@@ -66,10 +67,11 @@ class ERPtestdrive:
                 brake = 0
                 speed = 20
                 target_x = data.point.x  # 차량의 원점 기준 얼마나 앞의 지점을 기준으로 삼을지
-                delta_y = -data.point.y
-                Ld = np.sqrt(target_x^2 + delta_y^2)
+                delta_y = -1 * data.point.y
+                Ld = np.sqrt(target_x**2 + delta_y**2)
                 # Ld = 1
-                steer = np.rad2deg(np.arctan(2 * CAR_LENGTH * delta_y / (Ld^2)))
+                steer = np.rad2deg(np.arctan(2 * CAR_LENGTH * delta_y / (Ld**2)))
+                print("steer(deg): ", steer)
 
         speed_msg = UInt8()
         speed_msg.data = speed
