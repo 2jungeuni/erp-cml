@@ -10,10 +10,10 @@ import numpy as np
 
 
 # Define constants
-X_CAR = 200  # from front of car to reference point
-T_wdc =  np.array([[ 0,  0,  1, 0.0],     
-                    [-1,  0,  0, 6.0],
-                    [ 0, -1,  0, 68.0],
+X_CAR = 350  # from front of car to reference point
+T_wdc =  np.array([[ 0,  0,  1, 132],     
+                    [-1,  0,  0, 0],
+                    [ 0, -1,  0, 68],
                     [ 0,  0,  0, 1]])
 
 
@@ -27,11 +27,13 @@ class PosePublisher:
 
         # Subscribe to camera info topics once to get the camera parameters
         self.rgb_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback, "rgb")
-        self.depth_info_sub = rospy.Subscriber("/camera/depth/camera_info", CameraInfo, self.camera_info_callback, "depth")
+        # self.depth_info_sub = rospy.Subscriber("/camera/depth/camera_info", CameraInfo, self.camera_info_callback, "depth")
+        self.depth_info_sub = rospy.Subscriber("/camera/aligned_depth_to_color/camera_info", CameraInfo, self.camera_info_callback, "depth")
 
         # Subscribe to image topics with ApproximateTimeSynchronizer
         self.rgb_raw_sub = message_filters.Subscriber("/camera/color/image_raw", Image)
-        self.depth_raw_sub = message_filters.Subscriber("/camera/depth/image_rect_raw", Image)
+        # self.depth_raw_sub = message_filters.Subscriber("/camera/depth/image_rect_raw", Image)
+        self.depth_raw_sub = message_filters.Subscriber("/camera/aligned_depth_to_color/image_raw", Image)
 
         self.ts = ApproximateTimeSynchronizer([self.rgb_raw_sub, self.depth_raw_sub], 10, 0.1)
         self.ts.registerCallback(self.image_callback)
@@ -67,12 +69,12 @@ class PosePublisher:
 
         ## Calculate x-axis length in RGB image
         # Convert world coordinate to image coordinate
-        target_point = np.array([X_CAR, 0, 0, 1])
+        target_point = np.array([X_CAR + T_wdc[0, 3], 0, 0, 1])
         cam_pts = np.linalg.inv(T_wdc) @ target_point
         img_pts_hom = rgb_intrinsic @ cam_pts[:3]
         x, y = img_pts_hom[:2] / img_pts_hom[2]
         x, y = int(x), int(y)
-        # print(x, y)
+        # print("x,y:", x, y)
 
 
         # Calculate centerline(highest gradient)
@@ -84,19 +86,20 @@ class PosePublisher:
         indices = np.argsort(-1 * grad)[:4]
         x_center = np.mean(indices).astype(int)
         # print("1st x center: ", np.argmax(grad))
-        # print(x_center)
+        # print("xcenter:",x_center, y)
 
 
-        # Measure depth value and calculate delta_y value
-        depth_value = cv_depth[y, x_center]
-        if depth_value != 0:
-            delta_y = np.sqrt((depth_value**2) - (T_wdc[2, 3]**2) - (X_CAR**2))
-        else:
-            delta_y = 0
+        # Measure depth value and calculate world coordinate of center pixel
+        depth_value = cv_depth[y, x_center] * 0.1
+        cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([x_center, y, 1])
+        world_coords = T_wdc @ np.append(cam_coords, 1)
+        print(world_coords[:3])
+        delta_y = world_coords[1]
+
         
         # Publish reference coodinate
-        print(f"Depth at pixel ({x_center}, {y}): {depth_value} mm")
-        print(delta_y)
+        # print(f"Depth at pixel ({x_center}, {y}): {depth_value} cm")
+        # print("delta_y: ", delta_y)
         refpose = PointStamped()
         refpose.header.stamp = rospy.Time.now()
         refpose.header.frame_id = "world_cood"
@@ -118,9 +121,3 @@ if __name__ == "__main__":
     rate = rospy.Rate(1)
     while not rospy.is_shutdown():
         rate.sleep()
-
-# depth_to_color_extrinsics - constant?
-# rotation: [0.9999845623970032, -0.003664492629468441, -0.004174978472292423,
-#             0.0036358407232910395, 0.9999699592590332, -0.006849836092442274, 
-#            0.0041999537497758865, 0.006834551226347685, 0.9999678134918213]
-# translation: [0.014983640983700752, 0.00022463918139692396, 6.477197166532278e-05]
