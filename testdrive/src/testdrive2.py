@@ -5,7 +5,7 @@ from geometry_msgs.msg import PointStamped
 import numpy as np
 
 
-CAR_LENGTH = 120  # 차량의 뒷바퀴 중간부터 앞바퀴 중간까지의 거리 (cm)
+CAR_LENGTH = 105  # 차량의 뒷바퀴 중간부터 앞바퀴 중간까지의 거리 (cm)
 
 
 class ERPtestdrive:
@@ -63,7 +63,7 @@ class ERPtestdrive:
         speed = 0
         steer = 0
         if self.e_stop == 0: # if emergency stop is not working
-            if self.encoder <= self.initial_encoder + 100: # while car drives about 1.2m
+            if self.encoder <= self.initial_encoder + 200: # while car drives about 1.2m
                 brake = 0
                 speed = 20
                 target_x = data.point.x  # 차량의 원점 기준 얼마나 앞의 지점을 기준으로 삼을지
@@ -77,7 +77,7 @@ class ERPtestdrive:
         speed_msg.data = speed
         self.speed_pub.publish(speed_msg)
         steer_msg = Int32()
-        steer_conv = max(-2000, min(2000, round(steer * 71)))
+        steer_conv = int(max(-2000, min(2000, round(steer * 71))))
         # change degree to integer and clipping
         steer_msg.data = steer_conv
         self.steer_pub.publish(steer_msg)
@@ -90,6 +90,6 @@ class ERPtestdrive:
 if __name__ == "__main__":
     rospy.init_node("testdrive")
     node = ERPtestdrive()
-    rate = rospy.Rate(1)
+    rate = rospy.Rate(50)
     while not rospy.is_shutdown():
         rate.sleep()
