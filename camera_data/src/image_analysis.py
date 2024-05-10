@@ -10,28 +10,18 @@ import numpy as np
 
 
 # Define constants
-X_CAR = 80  # from camera to reference point
+X_CAR = 80  # from camera to reference point (cm)
+
+T_wdc = np.array([
+    [ 0.0210377485,  -0.474024047,   0.880260539,  137.9578],
+    [-0.999772393,   -0.0130974325,  0.0168409938,   2.79708711],
+    [ 0.00354611692, -0.880414482,  -0.474191696,   67.3985744],
+    [ 0.0,            0.0,           0.0,            1.0]])
+
 # T_wdc =  np.array([[ 0,  0,  1, 137],     
 #                     [-1,  0,  0, 3.5],
 #                     [ 0, -1,  0, 70.5],
-#                     [ 0,  0,  0, 1]])
-
-# T_wdc = np.array([[  0.        ,   0.17364818,   0.98480775, 137.        ],
-#        [ -1.        ,   0.        ,   0.        ,   3.5       ],
-#        [  0.        ,  -0.98480775,   0.17364818,  70.5       ],
-#        [  0.        ,   0.        ,   0.        ,   1.        ]])
-# T_wdc = np.array([[  0.        ,   0.34202014,   0.93969262, 137.        ],
-#        [ -1.        ,   0.        ,   0.        ,   3.5       ],
-#        [  0.        ,  -0.93969262,   0.34202014,  70.5       ],
-#        [  0.        ,   0.        ,   0.        ,   1.        ]])
-T_wdc = np.array([
-    [2.10377485e-02, -4.74024047e-01, 8.80260539e-01, 1.37957800e+02],
-    [-9.99772393e-01, -1.30974325e-02, 1.68409938e-02, 2.79708711e+00-1.5],
-    [3.54611692e-03, -8.80414482e-01, -4.74191696e-01, 6.73985744e+01],
-    [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]
-])
-
-
+#                     [ 0,  0,  0, 1]])  # for ZED left camera
 
 class PosePublisher:
     def __init__(self):
@@ -41,8 +31,6 @@ class PosePublisher:
 
         # Subscribe to camera info topics once to get the camera parameters
         self.rgb_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback, "rgb")
-        # self.depth_info_sub = rospy.Subscriber("/camera/depth/camera_info", CameraInfo, self.camera_info_callback, "depth")
-        self.depth_info_sub = rospy.Subscriber("/camera/aligned_depth_to_color/camera_info", CameraInfo, self.camera_info_callback, "depth")
 
         # Subscribe to image topics with ApproximateTimeSynchronizer
         self.rgb_raw_sub = message_filters.Subscriber("/camera/color/image_raw", Image)
@@ -56,9 +44,6 @@ class PosePublisher:
         if camera_type == "rgb" and not self.rgb_info:
             self.rgb_info = data
             self.rgb_info_sub.unregister()  # Unsubscribe after receiving the info
-        elif camera_type == "depth" and not self.depth_info:
-            self.depth_info = data
-            self.depth_info_sub.unregister()  # Unsubscribe after receiving the info
 
 
     def image_callback(self, rgb_image, depth_image):
@@ -74,11 +59,6 @@ class PosePublisher:
 
         # Load external values
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
-        depth_intrinsic = np.array(self.depth_info.K).reshape(3, 3)
-        rgb_w = self.rgb_info.width
-        rgb_h = self.rgb_info.height
-        depth_w = self.depth_info.width
-        depth_h = self.depth_info.height
 
 
         ## Calculate x-axis length in RGB image
@@ -104,7 +84,7 @@ class PosePublisher:
 
 
         # Measure depth value and calculate world coordinate of center pixel
-        depth_value = cv_depth[y, x_center] * 0.1
+        depth_value = cv_depth[y, x_center] * 0.1   # mm -> cm
         cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([x_center, y, 1])
         world_coords = T_wdc @ np.append(cam_coords, 1)
         print(world_coords[:3])
@@ -112,11 +92,11 @@ class PosePublisher:
 
         
         # Publish reference coodinate
-        # print(f"Depth at pixel ({x_center}, {y}): {depth_value} cm")
+        # print("Depth at pixel ({x_center}, {y}): {depth_value} cm")
         # print("delta_y: ", delta_y)
         refpose = PointStamped()
         refpose.header.stamp = rospy.Time.now()
-        refpose.header.frame_id = "world_cood"
+        refpose.header.frame_id = "base_link"
         refpose.point.x = X_CAR + T_wdc[0, 3]
         refpose.point.y = delta_y
         refpose.point.z = 0
