@@ -9,3 +9,25 @@ Code for control ERP-42
 5. erp_ws/src 폴더 안에서 레포지토리 위치시키기
 6. (branch 변경) 왼쪽 아래의 'main' 클릭 -> sjlee 선택
 7. 터미널의 erp_ws폴더에서 catkin_make로 빌드 후 코드 실행하기
+
+
+---
+실행하기
+
+카메라 실행
+- `roslaunch realsense2_camera rs_camera.launch color_width:=640 color_height:=480 color_fps:=30 depth_width:=640 depth_height:=360 depth_fps:=30`
+- 또는 `roslaunch realsense2_camera rs_camera.launch` 
+
+카메라 이미지 처리
+- `rosrun camera_data image_analysis2.py`  -> 7층 주행
+- `rosrun camera_data main_ROS.py` -> 차선인식
+
+reference point -> 출력 명령 실행
+- `rosrun testdrive final_testdrive.py`
+
+ERP 통신
+- `rosrun erp_com receiver.py`
+- `rosrun erp_com sender.py`
+
+---
+* 5/15 rosbag 주행데이터는 notion에 업로드 함.
