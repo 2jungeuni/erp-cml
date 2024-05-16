@@ -12,7 +12,7 @@ Code for control ERP-42
 
 
 ---
-실행하기
+실행하기 (따로 roscore를 실행해두면 편함)
 
 카메라 실행
 - `roslaunch realsense2_camera rs_camera.launch color_width:=640 color_height:=480 color_fps:=30 depth_width:=640 depth_height:=360 depth_fps:=30`
@@ -22,7 +22,7 @@ Code for control ERP-42
 - `rosrun camera_data image_analysis2.py`  -> 7층 주행
 - `rosrun camera_data main_ROS.py` -> 차선인식
 
-reference point -> 출력 명령 실행
+reference point를 기반으로 차량 제어(pure pursuit)
 - `rosrun testdrive final_testdrive.py`
 
 ERP 통신
@@ -30,4 +30,4 @@ ERP 통신
 - `rosrun erp_com sender.py`
 
 ---
-* 5/15 rosbag 주행데이터는 notion에 업로드 함.
+* 5/15 rosbag 주행데이터는 notion에 업로드 함(https://www.notion.so/rml-erp42/Lab-Driving-Test-8290b640e4624a1090318b775625869a).
