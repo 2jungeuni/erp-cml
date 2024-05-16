@@ -165,13 +165,13 @@ class PosePublisher:
 
         cv2.imshow("Original Image", cv_rgb)
         #--------------------------------
-        world_x_max = 500 # (cm)
-        world_x_min = 300
-        world_y_max = 100
-        world_y_min = -100
+        world_x_max = 600 # (cm)
+        world_x_min = 400
+        world_y_max = 200
+        world_y_min = -200
 
-        world_x_interval = 0.5
-        world_y_interval = 0.5
+        world_x_interval = 1
+        world_y_interval = 1
         
 
         map_x, map_y = self.generate_direct_backward_mapping(world_x_min, world_x_max, world_x_interval, world_y_min,

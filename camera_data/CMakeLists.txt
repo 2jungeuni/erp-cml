@@ -20,6 +20,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   src/image_analysis.py
   src/image_analysis2.py
+  src/main_ROS.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
