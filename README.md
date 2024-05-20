@@ -15,7 +15,7 @@ Code for control ERP-42
 실행하기 (따로 roscore를 실행해두면 편함)
 
 카메라 실행
-- `roslaunch realsense2_camera rs_camera.launch color_width:=640 color_height:=480 color_fps:=30 depth_width:=640 depth_height:=360 depth_fps:=30`
+- `roslaunch realsense2_camera rs_camera.launch color_width:=640 color_height:=360 color_fps:=30 depth_width:=640 depth_height:=360 depth_fps:=30`
 - 또는 `roslaunch realsense2_camera rs_camera.launch` 
 
 카메라 이미지 처리
