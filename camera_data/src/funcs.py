@@ -91,11 +91,14 @@ def filter_lines_initial(lines, current_section, temp2, temp, all_lines, real_al
     """ called at each section """
     closest_l_line = []
     closest_r_line = []
-    max_slope = 110
-    min_slope = 70
+    # max_slope = 110
+    # min_slope = 70
+    max_slope = 150
+    min_slope = 20
         
     if lines is not None:
         for line in lines:
+            # cv2.imshow("testest", temp2)
             extended_line = extend_lines_fit_section(line[0], current_section)       
             if extended_line is not None:
                 x1, y1, x2, y2 = line[0]
@@ -371,41 +374,22 @@ def control_point(all_lines):
                     
     return Q_l, Q_r
     
+
 def extract_lines_in_section_initial(roi, no_line_cnt):
-    # global q #* for drawing
-    # global initial_not_found
     temp = np.copy(roi)
     temp = cv2.cvtColor(temp, cv2.COLOR_GRAY2BGR)
     temp2 = np.copy(temp) # for drawing hough lines
     a = np.copy(temp) # for drawing hough lines
     all_lines = []
     all_lines_for_filtering = []
-    
-    ## ? Section Line Drawing
-    # for i in config.section_list:
-    #     cv2.line(temp2, (0,i), (temp2.shape[1],i), (255,0,0), 1)
-    #     cv2.line(temp, (0,i), (temp.shape[1],i), (255,0,0), 1)
-    #     cv2.line(a, (0,i), (a.shape[1],i), (255,0,0), 1)
-    # cv2.imwrite("try/left_right_lane_bspline_KF_BEV/3rd_KF_try/section_divided/"+str(q)+".jpg", a)
-    
+
     for i in range(len(config.section_list)-1): #* for each section
-        #- print(i)
         separated = np.copy(roi)
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=40, minLineLength=20, maxLineGap=50) # Probabilistic Hough Transform
-        # # ? Drawing Hough lines
-        # if lines is not None:
-        #     for line in lines:
-        #         x1, y1, x2, y2 = line[0]
-        #         cv2.line(temp, (x1, y1), (x2, y2), (0, 255, 0), 1)
-        # cv2.imshow("Hough lines", temp)
-        # cv2.waitKey(3000)
-        
+        # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=40, minLineLength=20, maxLineGap=50) # Probabilistic Hough Transform
+        # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=80, minLineLength=100, maxLineGap=50) # Probabilistic Hough Transform
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=60, minLineLength=100, maxLineGap=50) # Probabilistic Hough Transform
         filter_lines_initial(lines, i, temp2, temp, all_lines_for_filtering, all_lines) 
-        #- print("Filtered:", all_lines)       
-        
-        # cv2.imshow("1st", temp)
-        # cv2.waitKey(150)
     
     # if lines found in all sections
     if len(all_lines[0][0]) != 0 and len(all_lines[0][1]) != 0 and len(all_lines[1][0]) != 0 and len(all_lines[1][1]) != 0:
@@ -421,18 +405,6 @@ def extract_lines_in_section_initial(roi, no_line_cnt):
             cv2.circle(temp2, point_r[0:2], 7, (255, 255, 255), 2)
             cv2.circle(temp, point_r[0:2], 7, (255, 255, 255), 2)
         
-    
-    
-    # #? Detected Line Drawing
-    # for line in all_lines:
-    #     for x1, y1, x2, y2 in line:
-    #         cv2.line(temp, (x1, y1), (x2, y2), (0,255,255), 2)
-        
-    # cv2.imshow("Final lanes before filtering", temp2)
-    # cv2.imshow("Final lanes after filtering", temp)
-    # cv2.imwrite("visualizations/unist_line_in_section_bf_filter/"+str(q)+".jpg", temp2)
-    # cv2.imwrite("try/left_right_lane_bspline_KF_BEV/3rd_KF_try/unist_line_in_section_af_filter/"+str(q)+".jpg", temp)
-
     return all_lines, temp, Q_l, Q_r
 
 
@@ -454,7 +426,8 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
     for i in range(len(config.section_list)-1): #* for each section
         separated = np.copy(roi)
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=40, minLineLength=20, maxLineGap=50) # Probabilistic Hough Transform
+        # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=40, minLineLength=20, maxLineGap=50) # Probabilistic Hough Transform
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=60, minLineLength=100, maxLineGap=50) # Probabilistic Hough Transform
         # # ? Drawing Hough lines
         # if lines is not None:
         #     for line in lines:
@@ -526,12 +499,9 @@ def R_set_considering_control_points(Q_l, Q_r, prev_esti, no_line_cnt):
     
     return np.diag(1000 * np.ones(6))
 
-def sigmoid(x):    
-    alpha = 0.5
-    beta = 160
-    # alpha = 1
-    # beta = 100
-    
+def sigmoid(x, a, b):    
+    alpha = a
+    beta = b
     img_float = x.astype(np.float32)
     sigmoid = ( 255 / (1 + np.exp(-alpha * (img_float - beta))) ).astype(np.uint8)
 
@@ -547,3 +517,32 @@ def min_dist_set(no_line_cnt, lines_in_section):
                 no_line_cnt[2*i+j] = 0
             # broaden_search_distance[2*i+j] = no_line_cnt[2*i+j] >= 10
     #- print(no_line_cnt)
+
+
+# sigmoid 삭제
+def find_best_const(bev):
+    x, y = 150, 480
+
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+    dilate = cv2.dilate(bev, k, iterations=2)
+    cv2.imshow("dilate", dilate)
+
+    max_val = np.max(dilate[y-2:y+3, x-40:x+40])
+    # dilate_shifted = max_val - dilate
+    dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
+    cv2.imshow("dilate_shifted", dilate_shifted)
+    filtered = cv2.inRange(dilate_shifted, 100, 200)
+
+    ret, thres2 = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    cv2.imshow("thres2", filtered)
+
+    canny_dilate = auto_canny(thres2, sigma=0.2)
+    cv2.imshow("canny_dilate", canny_dilate)
+    num_labels, labels_im = cv2.connectedComponents(canny_dilate)
+    new_binary_img = np.zeros_like(canny_dilate)
+    for label in range(1, num_labels):  # 0은 배경이므로 제외
+        component = (labels_im == label).astype(np.uint8) * 255
+        if cv2.countNonZero(component) > 50:
+            new_binary_img = cv2.bitwise_or(new_binary_img, component)
+
+    return new_binary_img

@@ -3,7 +3,6 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import numpy as np
-import cv2
 import time
 import copy
 
@@ -53,22 +52,10 @@ class PosePublisher:
 
     def world_to_img_pts(self, img, intrinsic):   
         pts = np.array([
-            # 생긴건 정상인데 방향이 이상함(X축 반전)
             [config.world_x_max, config.world_y_max, 0, 1],  
             [config.world_x_max, config.world_y_min, 0, 1],
             [config.world_x_min, config.world_y_min, 0, 1],
             [config.world_x_min, config.world_y_max, 0, 1],
-            
-            # [config.world_x_max, config.world_y_min, 0, 1],
-            # [config.world_x_max, config.world_y_max, 0, 1],  
-            # [config.world_x_min, config.world_y_max, 0, 1],
-            # [config.world_x_min, config.world_y_min, 0, 1],
-
-            # 정상 방향인데 생긴게 이상함
-            # [config.world_x_min, config.world_y_min, 0, 1],
-            # [config.world_x_min, config.world_y_max, 0, 1],
-            # [config.world_x_max, config.world_y_min, 0, 1],
-            # [config.world_x_max, config.world_y_max, 0, 1],  
         ], dtype=np.float32)
         
         img_pts = []
@@ -83,7 +70,6 @@ class PosePublisher:
             cv2.circle(img, (int(x), int(y)), 4, (0,0,255), -1)
         
         # cv2.imshow(" pts on img", img)
-        
         return img_pts
 
 
@@ -95,23 +81,7 @@ class PosePublisher:
         
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
-        sig = sigmoid(bev)
-                        
-        # ret, thres1 = cv2.threshold(sig, 150, 255, cv2.THRESH_BINARY)
-        ret, thres2 = cv2.threshold(sig, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        k = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
-        dilate = cv2.dilate(thres2, k)
-        canny_dilate = auto_canny(dilate)
-        # cv2.imwrite("visualizations/dilate/"+str(config.q)+".jpg", dilate)
-        # cv2.imwrite("visualizations/visualizationscanny/"+str(config.q)+".jpg", canny_dilate)
-        # cv2.imwrite("visualizations/preprocessed/"+str(config.q)+".jpg", sig)
-        # cv2.imwrite("visualizations/binary/"+str(config.q)+".jpg", thres1)
-        # cv2.imwrite("visualizations/binary_otsu/"+str(config.q)+".jpg", thres2)
-        cv2.imshow("BEV", bev)
-        cv2.imshow("BEV_sig", sig)
-        cv2.imshow("binary", thres2)
-        cv2.imshow("canny_dilate", canny_dilate)
-        
+        canny_dilate = find_best_const(bev)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
         
         if config.initial_not_found:
@@ -180,7 +150,7 @@ class PosePublisher:
             cv2.circle(lines_in_section_img, new_Q_l[i], 7, (255,0,0), 2)
             cv2.circle(lines_in_section_img, new_Q_r[i], 7, (255,0,0), 2)
         
-        cv2.imshow("Final lanes after filtering", lines_in_section_img)
+        # cv2.imshow("Final lanes after filtering", lines_in_section_img)
         # cv2.imwrite("visualizations/unist_line_in_section_af_filter/"+str(config.q)+".jpg", lines_in_section_img)
 
         
@@ -297,8 +267,6 @@ class PosePublisher:
             #! Publish 'world_target_point'
             print(world_target_point)
         #--------------------------------
-
-
 
 
 
