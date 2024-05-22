@@ -1,3 +1,4 @@
+#거의 원본
 # import cv2
 # import numpy as np
 
@@ -43,7 +44,7 @@
 
 
 
-
+# sigmoid의 alpha와 beta를 바꾸어가면서 넣어보기
 # import cv2
 # import numpy as np
 # import matplotlib.pyplot as plt
@@ -221,6 +222,7 @@
 # min_size = 100
 
 
+# Houghline의 파라미터 바꿔가면서 실험
 # for beta in range(50, 151, 10):
 #     for alpha in np.arange(0, 0.31, 0.01):
 
@@ -445,7 +447,7 @@
 
 
 
-# # dilate부터 먹이고 이미지 분석하기
+# # alpha for문 삭제
 # import cv2
 # import numpy as np
 
@@ -505,7 +507,7 @@
 # cv2.waitKey(0)
 
 
-# 가우시안 도입
+# sigmoid 삭제, 가우시안 도입
 import cv2
 import numpy as np
 from scipy.stats import norm
