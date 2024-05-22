@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import math
 import config as config
-
+from scipy.stats import norm
 
 def roi_extractor(img, x1, y1, x2, y2):
     mask = np.zeros_like(img)
@@ -388,7 +388,8 @@ def extract_lines_in_section_initial(roi, no_line_cnt):
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
         # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=40, minLineLength=20, maxLineGap=50) # Probabilistic Hough Transform
         # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=80, minLineLength=100, maxLineGap=50) # Probabilistic Hough Transform
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=60, minLineLength=100, maxLineGap=50) # Probabilistic Hough Transform
+        # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=60, minLineLength=100, maxLineGap=50)
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=50, minLineLength=50, maxLineGap=50)
         filter_lines_initial(lines, i, temp2, temp, all_lines_for_filtering, all_lines) 
     
     # if lines found in all sections
@@ -427,7 +428,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
         separated = np.copy(roi)
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
         # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=40, minLineLength=20, maxLineGap=50) # Probabilistic Hough Transform
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=60, minLineLength=100, maxLineGap=50) # Probabilistic Hough Transform
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=90, minLineLength=150, maxLineGap=50) # Probabilistic Hough Transform
         # # ? Drawing Hough lines
         # if lines is not None:
         #     for line in lines:
@@ -444,8 +445,8 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
         cv2.circle(temp, point_l[0:2], 7, (0, 0, 255), 2)
         cv2.circle(temp, point_r[0:2], 7, (0, 0, 255), 2)
     Q_l, Q_r = control_point(all_lines)
-    print(Q_l)
-    print(Q_r)
+    # print(Q_l)
+    # print(Q_r)
     for point_l, point_r in zip(Q_l, Q_r):
         if len(point_l) > 0:
             cv2.circle(temp2, point_l[0:2], 7, (255, 255, 255), 2)
@@ -519,30 +520,71 @@ def min_dist_set(no_line_cnt, lines_in_section):
     #- print(no_line_cnt)
 
 
+# # sigmoid 삭제
+# def find_best_const(bev):
+#     x, y = 150, 480
+
+#     k = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+#     dilate = cv2.dilate(bev, k, iterations=2)
+#     cv2.imshow("dilate", dilate)
+
+#     max_val = np.max(dilate[y-2:y+3, x-40:x+40])
+#     print(max_val)
+#     # dilate_shifted = max_val - dilate
+#     dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
+#     cv2.imshow("dilate_shifted", dilate_shifted)
+
+#     filtered = cv2.inRange(dilate_shifted, 100, 200)
+
+#     ret, thres2 = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+#     cv2.imshow("thres2", filtered)
+
+#     canny_dilate = cv2.Canny(thres2, 0, 255)
+#     cv2.imshow("canny_dilate", canny_dilate)
+
+#     num_labels, labels_im = cv2.connectedComponents(canny_dilate)
+#     new_binary_img = np.zeros_like(canny_dilate)
+#     for label in range(1, num_labels):  # 0은 배경이므로 제외
+#         component = (labels_im == label).astype(np.uint8) * 255
+#         if cv2.countNonZero(component) > 50:
+#             new_binary_img = cv2.bitwise_or(new_binary_img, component)
+#     return new_binary_img
+
+def gaussian_transform(x, mu, sigma):
+    img_float = x.astype(np.float32)
+    gaussian_pdf = norm.pdf(img_float, mu, sigma)
+    gaussian_pdf = gaussian_pdf / np.max(gaussian_pdf)  # Normalize to range [0, 1]
+    transformed_img = (gaussian_pdf * 255).astype(np.uint8)  # Scale to range [0, 255]
+    return transformed_img
+
 # sigmoid 삭제
 def find_best_const(bev):
     x, y = 150, 480
-
-    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     dilate = cv2.dilate(bev, k, iterations=2)
     cv2.imshow("dilate", dilate)
 
-    max_val = np.max(dilate[y-2:y+3, x-40:x+40])
-    # dilate_shifted = max_val - dilate
+    max_val = np.min(dilate[y-2:y+3, x-40:x+40])
     dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
     cv2.imshow("dilate_shifted", dilate_shifted)
-    filtered = cv2.inRange(dilate_shifted, 100, 200)
+    masked_image = np.where((dilate_shifted > 15) & (dilate_shifted < 245), dilate_shifted, 0)
+    cv2.imshow("masked_image", masked_image)
 
-    ret, thres2 = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+    mu, sigma = 170, 50  # 평균과 표준 편차 값 설정
+    filtered = gaussian_transform(masked_image, mu, sigma)
+    cv2.imshow("gaussian", filtered)
+
+    ret, thres2 = cv2.threshold(filtered, 200, 255, cv2.THRESH_BINARY)
     cv2.imshow("thres2", filtered)
 
-    canny_dilate = auto_canny(thres2, sigma=0.2)
+    canny_dilate = cv2.Canny(thres2, 0, 255)
     cv2.imshow("canny_dilate", canny_dilate)
+
     num_labels, labels_im = cv2.connectedComponents(canny_dilate)
     new_binary_img = np.zeros_like(canny_dilate)
     for label in range(1, num_labels):  # 0은 배경이므로 제외
         component = (labels_im == label).astype(np.uint8) * 255
         if cv2.countNonZero(component) > 50:
             new_binary_img = cv2.bitwise_or(new_binary_img, component)
-
     return new_binary_img
