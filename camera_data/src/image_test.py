@@ -445,47 +445,113 @@
 
 
 
-# dilate부터 먹이고 이미지 분석하기
+# # dilate부터 먹이고 이미지 분석하기
+# import cv2
+# import numpy as np
+
+# def sigmoid(x, alpha, beta):
+#     img_float = x.astype(np.float32)
+#     sigmoid_img = (255 / (1 + np.exp(-alpha * (img_float - beta)))).astype(np.uint8)
+#     return sigmoid_img
+
+# def auto_canny(image, sigma=0.33):
+#     v = np.median(image)
+#     lower = int(max(0, (1.0 - sigma) * v))
+#     upper = int(min(255, (1.0 + sigma) * v))
+#     edged = cv2.Canny(image, 0, 255)
+#     return edged
+
+# image_path = 'aa.png'
+# bev = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+# x, y = 150, 480
+# best_image = None
+
+# k = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+# dilate = cv2.dilate(bev, k, iterations=2)
+# cv2.imshow("dilate", dilate)
+
+# max_val = np.max(dilate[y-2:y+3, x-40:x+40])
+# print(max_val)
+# dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
+
+# cv2.imshow("dilate_shifted", dilate_shifted)
+# filtered = sigmoid(dilate_shifted, 0.02, 150)
+# cv2.imshow("sigmoid", filtered)
+# filtered = cv2.inRange(filtered, 100, 200)
+
+# cv2.imshow("filtered", filtered)
+# ret, thres2 = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+
+# canny_dilate = cv2.Canny(thres2, 0, 255)
+# cv2.imshow("canny_dilate", canny_dilate)
+
+# num_labels, labels_im = cv2.connectedComponents(canny_dilate)
+# new_binary_img = np.zeros_like(canny_dilate)
+# for label in range(1, num_labels):  # 0은 배경이므로 제외
+#     component = (labels_im == label).astype(np.uint8) * 255
+#     if cv2.countNonZero(component) > 50:
+#         new_binary_img = cv2.bitwise_or(new_binary_img, component)
+
+# lines = cv2.HoughLinesP(new_binary_img, 1, np.pi/180, threshold=90, minLineLength=100, maxLineGap=50)
+
+
+# best_image = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
+# for line in lines:
+#     x1, y1, x2, y2 = line[0]
+#     cv2.line(best_image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+#     cv2.imshow("best_line", best_image)
+# cv2.waitKey(0)
+
+
+# 가우시안 도입
 import cv2
 import numpy as np
+from scipy.stats import norm
 
-def sigmoid(x, alpha, beta):
+def gaussian_transform(x, mu, sigma):
     img_float = x.astype(np.float32)
-    sigmoid_img = (255 / (1 + np.exp(-alpha * (img_float - beta)))).astype(np.uint8)
-    return sigmoid_img
+    gaussian_pdf = norm.pdf(img_float, mu, sigma)
+    gaussian_pdf = gaussian_pdf / np.max(gaussian_pdf)  # Normalize to range [0, 1]
+    transformed_img = (gaussian_pdf * 255).astype(np.uint8)  # Scale to range [0, 255]
+    return transformed_img
 
-def auto_canny(image, sigma=0.33):
-    v = np.median(image)
-    lower = int(max(0, (1.0 - sigma) * v))
-    upper = int(min(255, (1.0 + sigma) * v))
-    edged = cv2.Canny(image, 0, 255)
-    return edged
-
-image_path = 'a.png'
+image_path = 'aa.png'
 bev = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
 x, y = 150, 480
 best_image = None
 
-k = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
 dilate = cv2.dilate(bev, k, iterations=2)
 cv2.imshow("dilate", dilate)
 
-max_val = np.max(dilate[y-2:y+3, x-40:x+40])
+max_val = np.min(dilate[y-2:y+3, x-40:x+40])
 print(max_val)
 dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
-
 cv2.imshow("dilate_shifted", dilate_shifted)
 
-filtered = cv2.inRange(dilate_shifted, 100, 200)
-cv2.imshow("thres2", filtered)
+# Gaussian 변환 적용
+mu, sigma = 170, 50  # 평균과 표준 편차 값 설정
+filtered = gaussian_transform(dilate_shifted, mu, sigma)
+cv2.imshow("gaussian", filtered)
+
 ret, thres2 = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+cv2.imshow("thres2", thres2)
 
 
-canny_dilate = auto_canny(thres2, sigma=0.2)
+canny_dilate = cv2.Canny(thres2, 0, 255)
 cv2.imshow("canny_dilate", canny_dilate)
 
-lines = cv2.HoughLinesP(canny_dilate, 1, np.pi/180, threshold=90, minLineLength=100, maxLineGap=50)
+num_labels, labels_im = cv2.connectedComponents(canny_dilate)
+new_binary_img = np.zeros_like(canny_dilate)
+for label in range(1, num_labels):  # 0은 배경이므로 제외
+    component = (labels_im == label).astype(np.uint8) * 255
+    if cv2.countNonZero(component) > 50:
+        new_binary_img = cv2.bitwise_or(new_binary_img, component)
+
+lines = cv2.HoughLinesP(new_binary_img, 1, np.pi/180, threshold=70, minLineLength=100, maxLineGap=50)
 
 
 best_image = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
