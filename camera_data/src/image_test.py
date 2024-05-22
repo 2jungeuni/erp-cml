@@ -530,7 +530,7 @@ dilate = cv2.dilate(bev, k, iterations=2)
 cv2.imshow("dilate", dilate)
 
 max_val = np.min(dilate[y-2:y+3, x-40:x+40])
-print(max_val)
+print(max_val)  # 이 값을 1초에 한번씩 긁어와서 저장한 다음 10짜리 리스트에 넣고 평균낸 값 사용하기?
 dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
 cv2.imshow("dilate_shifted", dilate_shifted)
 

@@ -120,8 +120,8 @@ class PosePublisher:
                 first_elements.append(0)
         KF_Q_r = np.array(first_elements)
         
-        print("KF_Q_l:", KF_Q_l)
-        print("KF_Q_r:", KF_Q_r)
+        # print("KF_Q_l:", KF_Q_l)
+        # print("KF_Q_r:", KF_Q_r)
         
         if KF_Q_l is not None and KF_Q_r is not None:
             z_meas = np.concatenate((KF_Q_l, KF_Q_r), axis=0)
@@ -170,7 +170,7 @@ class PosePublisher:
         self.prev_Q_r = copy.deepcopy(new_Q_r)
         self.prev_P = copy.deepcopy(self.P)
         
-        cv2.imshow("B-spline on BEV", bspline_img)
+        # cv2.imshow("B-spline on BEV", bspline_img)
         # cv2.imwrite("visualizations/unist_bspline/"+str(config.q)+".jpg", bspline_img)
 
         if img is not None:
