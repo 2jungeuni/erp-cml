@@ -4,75 +4,78 @@ import math
 import config as config
 from scipy.stats import norm
 
-def roi_extractor(img, x1, y1, x2, y2):
-    mask = np.zeros_like(img)
-    mask[y1:y2, x1:x2] = 255
-    roi = cv2.bitwise_and(img, mask)
-    return roi
 
 
-def draw_hough_lines(img, lines, color=(0, 255, 0), thickness=2):
-    line_img = np.copy(img)
-    if lines is not None:
-        for line in lines:
-            for x1, y1, x2, y2 in line:
-                cv2.line(line_img, (x1, y1), (x2, y2), color, thickness)
-    return line_img
-
-def slope(x1, y1, x2, y2):
-    if x2 - x1 == 0:
-        return float('inf')
-    else:
-        return (y2 - y1) / (x2 - x1)
+# -------------------- main functions(main에서 바로 호출) -------------------------
+def world_to_img_pts(img, intrinsic):   
+    pts = np.array([
+        [config.world_x_max, config.world_y_max, 0, 1],  
+        [config.world_x_max, config.world_y_min, 0, 1],
+        [config.world_x_min, config.world_y_min, 0, 1],
+        [config.world_x_min, config.world_y_max, 0, 1],
+    ], dtype=np.float32)
+    img_pts = []
     
-def angle(x1,y1,x2,y2):
-    return (math.atan2(y2-y1, x2-x1) * 180) / math.pi # degree
+    for i in range(pts.shape[0]):
+        cam_pts = np.linalg.inv(config.extrinsic) @ pts[i]
+        img_pts_hom = intrinsic @ cam_pts[:3]
+        x,y = img_pts_hom[:2] / img_pts_hom[2]
+        img_pts.append((x, y))
+        cv2.circle(img, (int(x), int(y)), 4, (0, 0, 255), -1)
 
-def line_equation(points):
-        x1, y1, x2, y2 = points[0], points[1], points[2], points[3]
-        if x2 - x1 == 0: 
-            return float('inf'), y1
-        m = slope(x1,y1,x2,y2)
-        c = y1 - m * x1
-        return m, c  
-    
-def line_length(points):
-    """Calculate the length of a line segment."""
-    x1, y1, x2, y2 = points[0], points[1], points[2], points[3]
-    return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-        
-def extend_lines_fit_section(points, current_section):
-    m, c = line_equation(points)
-    
-    if line_length(points) < 70:
-        return None
-        
-    if m < 0 and m != np.NINF:
-        y2 = config.section_list[current_section+1]
-        y1 = config.section_list[current_section]
-        x1 = int((y1-c)/m)
-        x2 = int((y2-c)/m)
-    elif m > 0 and m != np.inf:
-        y2 = config.section_list[current_section+1]
-        y1 = config.section_list[current_section]
-        x1 = int((y1-c)/m)
-        x2 = int((y2-c)/m)
-    elif m == np.inf: # vertical line
-        y2 = config.section_list[current_section+1]
-        y1 = config.section_list[current_section]
-        x1 = points[0]
-        x2 = points[0]
-    else: # Excluding horizontal line (which can't be a lane)
-        return None
+    return img_pts
 
-    return [x1,y1,x2,y2]
 
-def calculate_distance(x1,y1,x2,y2, x3,y3,x4,y4):
-    """ Calculate the average distance between the midpoints of two lines """
-    midpoint1 = ((x1 + x2) / 2, (y1 + y2) / 2)
-    midpoint2 = ((x3 + x4) / 2, (y3 + y4) / 2)
-    return np.sqrt((midpoint2[0] - midpoint1[0])**2 + (midpoint2[1] - midpoint1[1])**2), midpoint1, midpoint2
-    
+
+def BEV(img, bev_pts):
+    bev_pts1 = np.array(bev_pts).astype(np.float32)
+    bev_pts2 = np.float32([[0,0],[300,0],[300,500],[0,500]])
+    matrix = cv2.getPerspectiveTransform(bev_pts1, bev_pts2)
+    inv_matrix = cv2.getPerspectiveTransform(bev_pts2, bev_pts1)
+    bev = cv2.warpPerspective(img, matrix,(300,500))
+    return bev, inv_matrix
+
+
+
+def preprocessing(bev, iteration, max_val_queue, iteration_interval=1000):
+    # sigmoid 삭제, gaussian 도입
+    x, y = 150, 480
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    dilate = cv2.dilate(bev, k, iterations=2)
+    cv2.imshow("dilate", dilate)
+
+    if iteration % iteration_interval == 0:
+        max_val = np.min(dilate[y-2:y+3, x-40:x+40])
+        max_val_queue.append(max_val)
+    if len(max_val_queue) == 0:
+        raise ValueError("The max_val_queue is empty.")
+
+    average_max_val = np.mean(max_val_queue)
+    print(average_max_val)
+
+    dilate_shifted = np.where(dilate == 0, 0, int(average_max_val) - dilate)
+    cv2.imshow("dilate_shifted", dilate_shifted)
+
+    mu, sigma = 170, 50  # 평균과 표준 편차 값 설정
+    filtered = gaussian_transform(dilate_shifted, mu, sigma)
+    cv2.imshow("gaussian", filtered)
+
+    ret, thres2 = cv2.threshold(filtered, 200, 255, cv2.THRESH_BINARY)
+    cv2.imshow("thres2", thres2)
+
+    canny_dilate = cv2.Canny(thres2, 0, 255)
+    cv2.imshow("canny_dilate", canny_dilate)
+
+    num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(canny_dilate)
+    new_binary_img = np.zeros_like(canny_dilate)
+    for label in range(1, num_labels):  # 0은 배경이므로 제외
+        if stats[label, cv2.CC_STAT_AREA] > 50:  # Component area size check
+            component_mask = (labels_im == label).astype(np.uint8) * 255
+            new_binary_img = cv2.bitwise_or(new_binary_img, component_mask)
+
+    return new_binary_img
+
+
 
 def filter_lines_initial(lines, current_section, temp2, temp, all_lines, real_all_lines):
     """ called at each section """
@@ -118,6 +121,7 @@ def filter_lines_initial(lines, current_section, temp2, temp, all_lines, real_al
         cv2.line(temp2, (closest_l_line[0],closest_l_line[1]), (closest_l_line[2],closest_l_line[3]), (0,255,255), 2)
     if len(closest_r_line) > 0:
         cv2.line(temp2, (closest_r_line[0],closest_r_line[1]), (closest_r_line[2],closest_r_line[3]), (0,255,255), 2)    
+
 
 
 def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_line_cnt_l, no_line_cnt_r, all_lines, real_all_lines):
@@ -263,14 +267,207 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
         cv2.line(temp2, (closest_r_line[0],closest_r_line[1]), (closest_r_line[2],closest_r_line[3]), (0,255,255), 2)    
     
 
+
+
+    
+
+
+def extract_lines_in_section_initial(roi, no_line_cnt):
+    temp = np.copy(roi)
+    temp = cv2.cvtColor(temp, cv2.COLOR_GRAY2BGR)
+    temp2 = np.copy(temp) # for drawing hough lines
+    a = np.copy(temp) # for drawing hough lines
+    all_lines = []
+    all_lines_for_filtering = []
+
+    for i in range(len(config.section_list)-1): #* for each section
+        separated = np.copy(roi)
+        separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=50, minLineLength=50, maxLineGap=50)
+        filter_lines_initial(lines, i, temp2, temp, all_lines_for_filtering, all_lines) 
+    
+    # if lines found in all sections
+    if len(all_lines[0][0]) != 0 and len(all_lines[0][1]) != 0 and len(all_lines[1][0]) != 0 and len(all_lines[1][1]) != 0:
+        print("&&&&& FOUND")
+        config.initial_not_found = False
+            
+    Q_l, Q_r = control_point(all_lines)
+    for point_l, point_r in zip(Q_l, Q_r):
+        if len(point_l) > 0:
+            cv2.circle(temp2, point_l[0:2], 7, (255, 255, 255), 2)
+            cv2.circle(temp, point_l[0:2], 7, (255, 255, 255), 2)
+        if len(point_r) > 0:
+            cv2.circle(temp2, point_r[0:2], 7, (255, 255, 255), 2)
+            cv2.circle(temp, point_r[0:2], 7, (255, 255, 255), 2)
+        
+    return all_lines, temp, Q_l, Q_r
+
+
+
+def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
+    temp = np.copy(roi)
+    temp = cv2.cvtColor(temp, cv2.COLOR_GRAY2BGR)
+    temp2 = np.copy(temp) # for drawing hough lines
+    a = np.copy(temp) # for drawing hough lines
+    all_lines = []
+    all_lines_for_filtering = []
+    
+    for i in range(len(config.section_list)-1): #* for each section
+        separated = np.copy(roi)
+        separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=90, minLineLength=150, maxLineGap=50) # Probabilistic Hough Transform
+        
+        filter_lines(lines, prev_Q_l, prev_Q_r, i, temp2, temp, no_line_cnt[2*i], no_line_cnt[2*i+1], all_lines_for_filtering, all_lines) #todo pass line dist threshold
+    # print(all_lines)
+    for point_l, point_r in zip(prev_Q_l, prev_Q_r):
+        cv2.circle(temp2, point_l[0:2], 7, (0, 0, 255), 2)
+        cv2.circle(temp2, point_r[0:2], 7, (0, 0, 255), 2)
+        cv2.circle(temp, point_l[0:2], 7, (0, 0, 255), 2)
+        cv2.circle(temp, point_r[0:2], 7, (0, 0, 255), 2)
+    Q_l, Q_r = control_point(all_lines)
+    for point_l, point_r in zip(Q_l, Q_r):
+        if len(point_l) > 0:
+            cv2.circle(temp2, point_l[0:2], 7, (255, 255, 255), 2)
+            cv2.circle(temp, point_l[0:2], 7, (255, 255, 255), 2)
+        if len(point_r) > 0:
+            cv2.circle(temp2, point_r[0:2], 7, (255, 255, 255), 2)
+            cv2.circle(temp, point_r[0:2], 7, (255, 255, 255), 2)
+        
+        
+    cv2.imshow("Final lanes before filtering", temp2)
+    # cv2.imshow("Final lanes after filtering", temp)
+    
+    return all_lines, temp, Q_l, Q_r
+
+
+
+def R_set_considering_control_points(Q_l, Q_r, prev_esti, no_line_cnt):
+    weight = [1, 10, 200, 1, 10, 200]
+    
+    if prev_esti is not None:
+        R_ = np.zeros((6, 1))
+        for i in range(len(Q_l)):
+            if len(Q_l[i]) > 0:
+                dist_diff = abs(Q_l[i][0] - prev_esti[i])
+                R_[i] = dist_diff * weight[i] + 0.0000001
+            else: # if no control point
+                R_[i] = 100000
+                
+            if len(Q_r[i]) > 0:
+                diff = abs(Q_r[i][0] - prev_esti[i+3])
+                R_[i+3] = diff * weight[i+3] + 0.0000001
+            else: # if no control point
+                R_[i+3] = 100000
+                
+        return np.diag(R_.reshape((6,)))
+    
+    return np.diag(1000 * np.ones(6))
+
+
+
+def min_dist_set(no_line_cnt, lines_in_section):
+    for i in range(len(lines_in_section)): # 1st: section 1 / 2nd: section 2
+        for j in range(2): # 1st: left / 2nd: right
+            if len(lines_in_section[i][j]) == 0:
+                no_line_cnt[2*i+j] += 1
+            else:
+                no_line_cnt[2*i+j] = 0
+
+
+
+# -------------------- method functions(해당 파일 안에서 호출) ---------------------------------
+
+def gaussian_transform(image, mu, sigma):
+    img_float = image.astype(np.float32)
+    gaussian_pdf = norm.pdf(img_float, mu, sigma)
+    gaussian_pdf = gaussian_pdf / np.max(gaussian_pdf)
+    transformed_img = (gaussian_pdf * 255).astype(np.uint8)
+    return transformed_img
+
+
+def roi_extractor(img, x1, y1, x2, y2):
+    mask = np.zeros_like(img)
+    mask[y1:y2, x1:x2] = 255
+    roi = cv2.bitwise_and(img, mask)
+    return roi
+
+
+def slope(x1, y1, x2, y2):
+    if x2 - x1 == 0:
+        return float('inf')
+    else:
+        return (y2 - y1) / (x2 - x1)
+    
+
+def angle(x1,y1,x2,y2):
+    return (math.atan2(y2-y1, x2-x1) * 180) / math.pi # degree
+
+
+def line_equation(points):
+        x1, y1, x2, y2 = points[0], points[1], points[2], points[3]
+        if x2 - x1 == 0: 
+            return float('inf'), y1
+        m = slope(x1,y1,x2,y2)
+        c = y1 - m * x1
+        return m, c  
+
+
+def line_length(points):
+    x1, y1, x2, y2 = points[0], points[1], points[2], points[3]
+    return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+
+def extend_lines_fit_section(points, current_section):
+    m, c = line_equation(points)
+    
+    if line_length(points) < 70:
+        return None
+        
+    if m < 0 and m != np.NINF:
+        y2 = config.section_list[current_section+1]
+        y1 = config.section_list[current_section]
+        x1 = int((y1-c)/m)
+        x2 = int((y2-c)/m)
+    elif m > 0 and m != np.inf:
+        y2 = config.section_list[current_section+1]
+        y1 = config.section_list[current_section]
+        x1 = int((y1-c)/m)
+        x2 = int((y2-c)/m)
+    elif m == np.inf: # vertical line
+        y2 = config.section_list[current_section+1]
+        y1 = config.section_list[current_section]
+        x1 = points[0]
+        x2 = points[0]
+    else: # Excluding horizontal line (which can't be a lane)
+        return None
+
+    return [x1,y1,x2,y2]
+
+
+def calculate_distance(x1,y1,x2,y2, x3,y3,x4,y4):
+    """ Calculate the average distance between the midpoints of two lines """
+    midpoint1 = ((x1 + x2) / 2, (y1 + y2) / 2)
+    midpoint2 = ((x3 + x4) / 2, (y3 + y4) / 2)
+    return np.sqrt((midpoint2[0] - midpoint1[0])**2 + (midpoint2[1] - midpoint1[1])**2), midpoint1, midpoint2
+    
+
+def draw_hough_lines(img, lines, color=(0, 255, 0), thickness=2):
+    line_img = np.copy(img)
+    if lines is not None:
+        for line in lines:
+            for x1, y1, x2, y2 in line:
+                cv2.line(line_img, (x1, y1), (x2, y2), color, thickness)
+    return line_img
+
+
 def control_point(all_lines):
     """Averaging two points"""
+    # all_lines[][][]에서
+    # 첫번째(0/1) -> 0이면 위, 1이면 아래
+    # 두번째(0/1) -> 0이면 왼쪽, 1이면 오른쪽
+    # 세번째(0~3) -> 0,1이 위쪽의 x,y좌표, 2,3이 아래의 x,y좌표
     Q_l = []
     Q_r = []
-        # all_lines[][][]에서
-        # 첫번째(0/1) -> 0이면 위, 1이면 아래
-        # 두번째(0/1) -> 0이면 왼쪽, 1이면 오른쪽
-        # 세번째(0~3) -> 0,1이 위쪽의 x,y좌표, 2,3이 아래의 x,y좌표
 
     for i in range(len(all_lines)):
         if i == 0: # first line
@@ -308,169 +505,5 @@ def control_point(all_lines):
             else:
                 Q_r.append([])
                 if len(Q_r) == 2:
-                    Q_r.append([])
-                    
+                    Q_r.append([])          
     return Q_l, Q_r
-    
-
-def extract_lines_in_section_initial(roi, no_line_cnt):
-    temp = np.copy(roi)
-    temp = cv2.cvtColor(temp, cv2.COLOR_GRAY2BGR)
-    temp2 = np.copy(temp) # for drawing hough lines
-    a = np.copy(temp) # for drawing hough lines
-    all_lines = []
-    all_lines_for_filtering = []
-
-    for i in range(len(config.section_list)-1): #* for each section
-        separated = np.copy(roi)
-        separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=50, minLineLength=50, maxLineGap=50)
-        filter_lines_initial(lines, i, temp2, temp, all_lines_for_filtering, all_lines) 
-    
-    # if lines found in all sections
-    if len(all_lines[0][0]) != 0 and len(all_lines[0][1]) != 0 and len(all_lines[1][0]) != 0 and len(all_lines[1][1]) != 0:
-        print("&&&&& FOUND")
-        config.initial_not_found = False
-            
-    Q_l, Q_r = control_point(all_lines)
-    for point_l, point_r in zip(Q_l, Q_r):
-        if len(point_l) > 0:
-            cv2.circle(temp2, point_l[0:2], 7, (255, 255, 255), 2)
-            cv2.circle(temp, point_l[0:2], 7, (255, 255, 255), 2)
-        if len(point_r) > 0:
-            cv2.circle(temp2, point_r[0:2], 7, (255, 255, 255), 2)
-            cv2.circle(temp, point_r[0:2], 7, (255, 255, 255), 2)
-        
-    return all_lines, temp, Q_l, Q_r
-
-
-def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
-    temp = np.copy(roi)
-    temp = cv2.cvtColor(temp, cv2.COLOR_GRAY2BGR)
-    temp2 = np.copy(temp) # for drawing hough lines
-    a = np.copy(temp) # for drawing hough lines
-    all_lines = []
-    all_lines_for_filtering = []
-    
-    for i in range(len(config.section_list)-1): #* for each section
-        separated = np.copy(roi)
-        separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=90, minLineLength=150, maxLineGap=50) # Probabilistic Hough Transform
-        
-        filter_lines(lines, prev_Q_l, prev_Q_r, i, temp2, temp, no_line_cnt[2*i], no_line_cnt[2*i+1], all_lines_for_filtering, all_lines) #todo pass line dist threshold
-    # print(all_lines)
-    for point_l, point_r in zip(prev_Q_l, prev_Q_r):
-        cv2.circle(temp2, point_l[0:2], 7, (0, 0, 255), 2)
-        cv2.circle(temp2, point_r[0:2], 7, (0, 0, 255), 2)
-        cv2.circle(temp, point_l[0:2], 7, (0, 0, 255), 2)
-        cv2.circle(temp, point_r[0:2], 7, (0, 0, 255), 2)
-    Q_l, Q_r = control_point(all_lines)
-    for point_l, point_r in zip(Q_l, Q_r):
-        if len(point_l) > 0:
-            cv2.circle(temp2, point_l[0:2], 7, (255, 255, 255), 2)
-            cv2.circle(temp, point_l[0:2], 7, (255, 255, 255), 2)
-        if len(point_r) > 0:
-            cv2.circle(temp2, point_r[0:2], 7, (255, 255, 255), 2)
-            cv2.circle(temp, point_r[0:2], 7, (255, 255, 255), 2)
-        
-        
-    cv2.imshow("Final lanes before filtering", temp2)
-    # cv2.imshow("Final lanes after filtering", temp)
-    cv2.imwrite("visualizations/unist_line_in_section_bf_filter/"+str(config.q)+".jpg", temp2)
-    
-    return all_lines, temp, Q_l, Q_r
-
-def BEV(img, bev_pts):
-    bev_pts1 = np.array(bev_pts).astype(np.float32)
-    bev_pts2 = np.float32([[0,0],[300,0],[300,500],[0,500]])
-    matrix = cv2.getPerspectiveTransform(bev_pts1, bev_pts2)
-    inv_matrix = cv2.getPerspectiveTransform(bev_pts2, bev_pts1)
-    bev = cv2.warpPerspective(img, matrix,(300,500))
-    
-    return bev, inv_matrix
-
-def R_set_considering_control_points(Q_l, Q_r, prev_esti, no_line_cnt):
-    weight = [1, 10, 200, 1, 10, 200]
-    
-    if prev_esti is not None:
-        R_ = np.zeros((6, 1))
-        for i in range(len(Q_l)):
-            if len(Q_l[i]) > 0:
-                dist_diff = abs(Q_l[i][0] - prev_esti[i])
-                # angle_diff = angle()
-                R_[i] = dist_diff * weight[i] + 0.0000001
-            else: # if no control point
-                R_[i] = 100000
-                
-            if len(Q_r[i]) > 0:
-                diff = abs(Q_r[i][0] - prev_esti[i+3])
-                R_[i+3] = diff * weight[i+3] + 0.0000001
-            else: # if no control point
-                R_[i+3] = 100000
-                
-        return np.diag(R_.reshape((6,)))
-    
-    return np.diag(1000 * np.ones(6))
-
-
-def min_dist_set(no_line_cnt, lines_in_section):
-    #- print(lines_in_section)
-    for i in range(len(lines_in_section)): # 1st: section 1 / 2nd: section 2
-        for j in range(2): # 1st: left / 2nd: right
-            if len(lines_in_section[i][j]) == 0:
-                no_line_cnt[2*i+j] += 1
-            else:
-                no_line_cnt[2*i+j] = 0
-            # broaden_search_distance[2*i+j] = no_line_cnt[2*i+j] >= 10
-    #- print(no_line_cnt)
-
-
-
-def gaussian_transform(x, mu, sigma):
-    img_float = x.astype(np.float32)
-    gaussian_pdf = norm.pdf(img_float, mu, sigma)
-    gaussian_pdf = gaussian_pdf / np.max(gaussian_pdf)  # Normalize to range [0, 1]
-    transformed_img = (gaussian_pdf * 255).astype(np.uint8)  # Scale to range [0, 255]
-    return transformed_img
-
-
-# sigmoid 삭제, gaussian 도입
-def find_best_const(bev, iteration, max_val_queue, iteration_interval=1000):
-    x, y = 150, 480
-    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    dilate = cv2.dilate(bev, k, iterations=2)
-    cv2.imshow("dilate", dilate)
-
-    # Calculate max_val every 'iteration_interval' times
-    if iteration % iteration_interval == 0:
-        max_val = np.min(dilate[y-2:y+3, x-40:x+40])
-        max_val_queue.append(max_val)
-    
-    if len(max_val_queue) == 0:
-        raise ValueError("The max_val_queue is empty.")
-
-    # Calculate the average of the values in the queue
-    average_max_val = np.mean(max_val_queue)
-    print(average_max_val)
-
-    dilate_shifted = np.where(dilate == 0, 0, int(average_max_val) - dilate)
-    cv2.imshow("dilate_shifted", dilate_shifted)
-
-    mu, sigma = 170, 50  # 평균과 표준 편차 값 설정
-    filtered = gaussian_transform(dilate_shifted, mu, sigma)
-    cv2.imshow("gaussian", filtered)
-
-    ret, thres2 = cv2.threshold(filtered, 200, 255, cv2.THRESH_BINARY)
-    cv2.imshow("thres2", thres2)
-
-    canny_dilate = cv2.Canny(thres2, 0, 255)
-    cv2.imshow("canny_dilate", canny_dilate)
-
-    num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(canny_dilate)
-    new_binary_img = np.zeros_like(canny_dilate)
-    for label in range(1, num_labels):  # 0은 배경이므로 제외
-        if stats[label, cv2.CC_STAT_AREA] > 50:  # Component area size check
-            component_mask = (labels_im == label).astype(np.uint8) * 255
-            new_binary_img = cv2.bitwise_or(new_binary_img, component_mask)
-
-    return new_binary_img

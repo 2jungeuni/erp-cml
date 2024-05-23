@@ -27,6 +27,7 @@ class PosePublisher:
         # self.pos_pub = rospy.Publisher("/reference_pos", PointStamped, queue_size=10)
         self.rgb_info = None
         self.depth_info = None
+        
         self.x_esti = None
         self.prev_P = None
         self.no_line_cnt = [0,0,0,0]
@@ -36,7 +37,7 @@ class PosePublisher:
         self.prev_esti = None
         self.frame_count = 0
         self.start_time = time.time()
-        self.max_val_queue = deque(maxlen=50)
+        self.min_val_queue = deque(maxlen=50)
         self.iteration = 0
 
         # Subscribe to camera info topics once to get the camera parameters
@@ -51,40 +52,12 @@ class PosePublisher:
         self.ts.registerCallback(self.image_callback)
 
 
-
-    def world_to_img_pts(self, img, intrinsic):   
-        pts = np.array([
-            [config.world_x_max, config.world_y_max, 0, 1],  
-            [config.world_x_max, config.world_y_min, 0, 1],
-            [config.world_x_min, config.world_y_min, 0, 1],
-            [config.world_x_min, config.world_y_max, 0, 1],
-        ], dtype=np.float32)
-        
-        img_pts = []
-        
-        for i in range(pts.shape[0]):
-            cam_pts = np.linalg.inv(config.extrinsic) @ pts[i]
-            img_pts_hom = intrinsic @ cam_pts[:3]
-            x,y = img_pts_hom[:2] / img_pts_hom[2]
-            # print(int(x),int(y))
-            img_pts.append((x,y))
-            
-            cv2.circle(img, (int(x), int(y)), 4, (0,0,255), -1)
-        
-        # cv2.imshow(" pts on img", img)
-        return img_pts
-
-
-
         
     def lane_det_main(self, raw_img, bev_pts):    
-        # print()
         print(f"--------{config.q}--------")
-        
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
-        # canny_dilate = find_best_const(bev)
-        canny_dilate = find_best_const(bev, self.iteration, self.max_val_queue)
+        canny_dilate = preprocessing(bev, self.iteration, self.min_val_queue)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
         
         if config.initial_not_found:
@@ -96,10 +69,7 @@ class PosePublisher:
             lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section(canny_dilate, self.prev_Q_l, self.prev_Q_r, self.no_line_cnt)
             R = R_set_considering_control_points(Q_l, Q_r, self.prev_esti, self.no_line_cnt)
         
-        # print("R >>>>>>")
-        # print(R)
         min_dist_set(self.no_line_cnt, lines_in_section)
-
         if config.initial_not_found: #! If initial lane not found, skip everything below
             print(f"Initial lane not found: {self.x_esti}")
             return None
@@ -194,7 +164,6 @@ class PosePublisher:
             self.start_time = time.time()
             # cv2.waitKey(1000)
         cv2.waitKey(1)
-        # print("===============================================")
 
         config.q += 1 #* for drawing
                 
@@ -220,10 +189,8 @@ class PosePublisher:
         #--------------------------------
         
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
-        
-        # cv2.imshow("A", cv_rgb)
         print(config.initial_not_found)
-        bev_pts = self.world_to_img_pts(cv_rgb, rgb_intrinsic)
+        bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
 
         if self.lane_det_main(cv_rgb, bev_pts) == None:
             return
@@ -266,11 +233,7 @@ class PosePublisher:
             cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([found_point[0], found_point[1], 1])
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
             world_target_point = world_coords[:3]
-            
-            #! Publish 'world_target_point'
             print(world_target_point)
-        #--------------------------------
-
 
 
 
