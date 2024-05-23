@@ -17,8 +17,6 @@ def draw_hough_lines(img, lines, color=(0, 255, 0), thickness=2):
         for line in lines:
             for x1, y1, x2, y2 in line:
                 cv2.line(line_img, (x1, y1), (x2, y2), color, thickness)
-                # cv2.circle(line_img, (x1,y1), 10, (0,0,255), 1)
-                # cv2.circle(line_img, (x2,y2), 10, (255,255,0), 1)
     return line_img
 
 def slope(x1, y1, x2, y2):
@@ -44,8 +42,6 @@ def line_length(points):
     return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         
 def extend_lines_fit_section(points, current_section):
-    #* Extending lines to fit in the section
-    # print("EXTENDING")
     m, c = line_equation(points)
     
     if line_length(points) < 70:
@@ -82,21 +78,17 @@ def filter_lines_initial(lines, current_section, temp2, temp, all_lines, real_al
     """ called at each section """
     closest_l_line = []
     closest_r_line = []
-    # max_slope = 110
-    # min_slope = 70
     max_slope = 150
     min_slope = 20
         
     if lines is not None:
         for line in lines:
-            # cv2.imshow("testest", temp2)
             extended_line = extend_lines_fit_section(line[0], current_section)       
             if extended_line is not None:
                 x1, y1, x2, y2 = line[0]
                 cv2.line(temp2, (x1, y1), (x2, y2), (0, 255, 0), 1)
                 cv2.line(temp, (x1, y1), (x2, y2), (0, 255, 0), 1)
                 x1, y1, x2, y2 = extended_line
-                # cv2.line(temp, (x1, y1), (x2, y2), (0, 255, 0), 1)
                 ext_line_angle = angle(x1,y1,x2,y2)
 
                 if min_slope < ext_line_angle < max_slope:
@@ -110,10 +102,6 @@ def filter_lines_initial(lines, current_section, temp2, temp, all_lines, real_al
             cv2.line(temp, (closest_l_line[0],closest_l_line[1]), (closest_l_line[2],closest_l_line[3]), (0,255,255), 2)
         if len(closest_r_line) != 0:
             cv2.line(temp, (closest_r_line[0],closest_r_line[1]), (closest_r_line[2],closest_r_line[3]), (0,255,255), 2)
-        # cv2.imshow("midpoint", temp2)
-        
-    # cv2.imshow("Hough lines extended", temp)
-    cv2.imwrite("visualizations/selected_yellow/"+str(config.q)+".jpg", temp)
 
     real_all_lines.append([closest_l_line, closest_r_line])
     all_lines.append([closest_l_line, closest_r_line])
@@ -145,10 +133,7 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
     prev_l_angle = angle(prev_l_x1, prev_l_y1, prev_l_x2, prev_l_y2)
     prev_r_angle = angle(prev_r_x1, prev_r_y1, prev_r_x2, prev_r_y2)
     
-    # cv2.line(temp, (prev_l_x1, prev_l_y1), (prev_l_x2, prev_l_y2), (0, 0, 255), 2)
-    # cv2.line(temp, (prev_r_x1, prev_r_y1), (prev_r_x2, prev_r_y2), (0, 0, 255), 2)
-    
-    
+
     closest_l_line = []
     closest_r_line = []
     min_abs_distance_l = min_abs_distance_r = 25
@@ -216,35 +201,7 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
             cv2.line(temp, (closest_l_line[0],closest_l_line[1]), (closest_l_line[2],closest_l_line[3]), (0,255,255), 2)
         if len(closest_r_line) != 0:
             cv2.line(temp, (closest_r_line[0],closest_r_line[1]), (closest_r_line[2],closest_r_line[3]), (0,255,255), 2)
-        # cv2.imshow("midpoint", temp2)
-        # cv2.waitKey(1000)
-        
-    #*-----Drawing selected lines (including prev lines) in each section            
-    # if closest_l_line is None:       
-    #     closest_l_line = [prev_l_x1, prev_l_y1, prev_l_x2, prev_l_y2]
-    #     cv2.line(temp2, (closest_l_line[0],closest_l_line[1]), (closest_l_line[2],closest_l_line[3]), (0,0,255), 2)
-    # else:
-    #     cv2.line(temp2, (closest_l_line[0],closest_l_line[1]), (closest_l_line[2],closest_l_line[3]), (0,255,255), 2)
-    # if closest_r_line is None:
-    #     closest_r_line = [prev_r_x1, prev_r_y1, prev_r_x2, prev_r_y2]
-    #     cv2.line(temp2, (closest_r_line[0],closest_r_line[1]), (closest_r_line[2],closest_r_line[3]), (0,0,255), 2)
-    # else:        
-    #     cv2.line(temp2, (closest_r_line[0],closest_r_line[1]), (closest_r_line[2],closest_r_line[3]), (0,255,255), 2)        
-    # cv2.imshow("midpoint", temp2)
-    # cv2.waitKey(1000)
 
-    # cv2.imshow("Hough lines extended", temp)
-    cv2.imwrite("visualizations/selected_yellow/"+str(config.q)+".jpg", temp)
-
-
-    #todo
-    #*-----Filling empty section----------
-    '''
-    This is for temporarily filling all lines in all sections to use it in filtering.
-    Previously, filtering is done only when both lines are detected in a section.
-    But, this yields undesired result when the one line is wrongly detected and the other one is not detected. (slide 80)
-    To solve this issue, we're gonna use 'all_lines' to enable filtering in the case of only one line is detected. 
-    '''
     real_all_lines.append([closest_l_line, closest_r_line])
     all_lines.append([closest_l_line, closest_r_line])
     
@@ -297,15 +254,6 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
             if len(real_all_lines[i][1]) != 0:
                 cv2.line(temp, (real_all_lines[i][1][0], real_all_lines[i][1][1]), (real_all_lines[i][1][2], real_all_lines[i][1][3]), (0,255,255), 2)
                 
-    # print("---------Real all lines >>")    
-    # print(real_all_lines)
-    # print("---------All lines >>")    
-    # print(all_lines)
-    # print("---------")
-    
-    
-    #!------------------------
-    
     # Drawing detected lines
     if len(closest_l_line) > 0: 
         # broaden_search_distance_l = False    
@@ -376,9 +324,6 @@ def extract_lines_in_section_initial(roi, no_line_cnt):
     for i in range(len(config.section_list)-1): #* for each section
         separated = np.copy(roi)
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=40, minLineLength=20, maxLineGap=50) # Probabilistic Hough Transform
-        # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=80, minLineLength=100, maxLineGap=50) # Probabilistic Hough Transform
-        # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=60, minLineLength=100, maxLineGap=50)
         lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=50, minLineLength=50, maxLineGap=50)
         filter_lines_initial(lines, i, temp2, temp, all_lines_for_filtering, all_lines) 
     
@@ -407,25 +352,10 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
     all_lines = []
     all_lines_for_filtering = []
     
-    ## ? Section Line Drawing
-    # for i in config.section_list:
-    #     cv2.line(temp2, (0,i), (temp2.shape[1],i), (255,0,0), 1)
-    #     cv2.line(temp, (0,i), (temp.shape[1],i), (255,0,0), 1)
-    #     cv2.line(a, (0,i), (a.shape[1],i), (255,0,0), 1)
-    # cv2.imwrite("try/left_right_lane_bspline_KF_BEV/3rd_KF_try/section_divided/"+str(q)+".jpg", a)
-    
     for i in range(len(config.section_list)-1): #* for each section
         separated = np.copy(roi)
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        # lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=40, minLineLength=20, maxLineGap=50) # Probabilistic Hough Transform
         lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=90, minLineLength=150, maxLineGap=50) # Probabilistic Hough Transform
-        # # ? Drawing Hough lines
-        # if lines is not None:
-        #     for line in lines:
-        #         x1, y1, x2, y2 = line[0]
-        #         cv2.line(temp, (x1, y1), (x2, y2), (0, 255, 0), 1)
-        # cv2.imshow("Hough lines", temp)
-        # cv2.imwrite("try/left_right_lane_bspline_KF_BEV/3rd_KF_try/hough_section/"+str(q)+".jpg", temp)
         
         filter_lines(lines, prev_Q_l, prev_Q_r, i, temp2, temp, no_line_cnt[2*i], no_line_cnt[2*i+1], all_lines_for_filtering, all_lines) #todo pass line dist threshold
     # print(all_lines)
@@ -435,8 +365,6 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
         cv2.circle(temp, point_l[0:2], 7, (0, 0, 255), 2)
         cv2.circle(temp, point_r[0:2], 7, (0, 0, 255), 2)
     Q_l, Q_r = control_point(all_lines)
-    # print(Q_l)
-    # print(Q_r)
     for point_l, point_r in zip(Q_l, Q_r):
         if len(point_l) > 0:
             cv2.circle(temp2, point_l[0:2], 7, (255, 255, 255), 2)
@@ -445,12 +373,6 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
             cv2.circle(temp2, point_r[0:2], 7, (255, 255, 255), 2)
             cv2.circle(temp, point_r[0:2], 7, (255, 255, 255), 2)
         
-    
-    
-    # #? Detected Line Drawing
-    # for line in all_lines:
-    #     for x1, y1, x2, y2 in line:
-    #         cv2.line(temp, (x1, y1), (x2, y2), (0,255,255), 2)
         
     cv2.imshow("Final lanes before filtering", temp2)
     # cv2.imshow("Final lanes after filtering", temp)
