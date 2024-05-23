@@ -182,7 +182,7 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
         for line in lines:
             extended_line = extend_lines_fit_section(line[0], current_section)       
             if extended_line is not None:
-                x1, y1, x2, y2 = line[0]
+                x1, y1, x2, y2 = line[0]  # just for visualizations
                 cv2.line(temp2, (x1, y1), (x2, y2), (0, 255, 0), 1)
                 cv2.line(temp, (x1, y1), (x2, y2), (0, 255, 0), 1)
                 x1, y1, x2, y2 = extended_line
@@ -199,12 +199,14 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
                 cv2.circle(temp2, (int(mp1[0]), int(mp1[1])), 5, (255,255,0),-1)
 
                 # left line first
-                if distance_diff_Q_l < min_abs_distance_l and distance_diff_Q_l < comparison_distance_l and angle_diff_Q_l < min_slope_diff and angle_diff_Q_l < comparison_angle_l:
+                if distance_diff_Q_l < min_abs_distance_l and distance_diff_Q_l < comparison_distance_l and\
+                    angle_diff_Q_l < min_slope_diff and angle_diff_Q_l < comparison_angle_l:
                     comparison_distance_l = distance_diff_Q_l
                     comparison_angle_l = angle_diff_Q_l
                     closest_l_line = extended_line
                 # right line afterward
-                elif distance_diff_Q_r < min_abs_distance_r and distance_diff_Q_r < comparison_distance_r and angle_diff_Q_r < min_slope_diff and angle_diff_Q_r < comparison_angle_r:
+                elif distance_diff_Q_r < min_abs_distance_r and distance_diff_Q_r < comparison_distance_r and\
+                      angle_diff_Q_r < min_slope_diff and angle_diff_Q_r < comparison_angle_r:
                     comparison_distance_r = distance_diff_Q_r
                     comparison_angle_r = angle_diff_Q_r
                     closest_r_line = extended_line
@@ -265,9 +267,9 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
                 angle_l = angle(all_lines[i][0][0], all_lines[i][0][1], all_lines[i][0][2], all_lines[i][0][3])
                 angle_r = angle(all_lines[i][1][0], all_lines[i][1][1], all_lines[i][1][2], all_lines[i][1][3])
                 angle_diff = abs(angle_l - angle_r)
-                print("angle diff: ", angle_diff)
+                # print("angle diff: ", angle_diff)
                 if angle_diff >= 10:
-                    print(f"TOO LARGE ANGLE DIFFERENCE ({angle_diff}) --> DELETING")
+                    # print(f"TOO LARGE ANGLE DIFFERENCE ({angle_diff}) --> DELETING")
                     real_all_lines[i][0] = []
                     real_all_lines[i][1] = []
                     
@@ -279,11 +281,11 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
                     sec_0_dist_dif = distance_l_r
                 else:
                     if sec_0_dist_dif - distance_l_r > 0: # if dist in sec 0 is larger than in sec 1 is checking non-sense lane states
-                        print(f"NON SENSE LINE (S0) ({sec_0_dist_dif}, {distance_l_r})--> DELETING")
+                        # print(f"NON SENSE LINE (S0) ({sec_0_dist_dif}, {distance_l_r})--> DELETING")
                         real_all_lines[0][0] = []
                         real_all_lines[0][1] = []
-                    if distance_l_r <= 160 or distance_l_r >= 280:
-                        print(f"NARROW LANE WIDTH (S1)({distance_l_r})--> DELETING")
+                    if distance_l_r <= 160 or distance_l_r >= 280:    # 검증 단계에서 생각나는 아이디어 있다면 쓰기
+                        # print(f"NARROW LANE WIDTH (S1)({distance_l_r})--> DELETING")
                         real_all_lines[1][0] = []
                         real_all_lines[1][1] = []
                 
@@ -317,23 +319,27 @@ def control_point(all_lines):
     """Averaging two points"""
     Q_l = []
     Q_r = []
-        
+        # all_lines[][][]에서
+        # 첫번째(0/1) -> 0이면 위, 1이면 아래
+        # 두번째(0/1) -> 0이면 왼쪽, 1이면 오른쪽
+        # 세번째(0~3) -> 0,1이 위쪽의 x,y좌표, 2,3이 아래의 x,y좌표
+
     for i in range(len(all_lines)):
-        if i == 0:
-            if len(all_lines[i][0]) > 0:
+        if i == 0: # first line
+            if len(all_lines[i][0]) > 0: # left line in section 1
                 Q_l.append([all_lines[i][0][0], all_lines[i][0][1]])
                 Q_l.append([all_lines[i][0][2], all_lines[i][0][3]])
             else:
                 Q_l.append([])
-            if len(all_lines[i][1]) > 0:
+            if len(all_lines[i][1]) > 0: # right line in section 1
                 Q_r.append([all_lines[i][1][0], all_lines[i][1][1]])
                 Q_r.append([all_lines[i][1][2], all_lines[i][1][3]])
             else:
                 Q_r.append([])
         
-        else:
-            if len(all_lines[i][0]) > 0:
-                if len(Q_l) == 1:
+        else:  # second line
+            if len(all_lines[i][0]) > 0: # if left exists
+                if len(Q_l) == 1: # 위에 라인이 존재할때(1아니면 2니까 라인 없을때) -> 밑에 라인 끝점 그대로
                     Q_l.append([all_lines[i][0][0], all_lines[i][0][1]])
                     Q_l.append([all_lines[i][0][2], all_lines[i][0][3]])
                 else:
@@ -422,7 +428,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
         # cv2.imwrite("try/left_right_lane_bspline_KF_BEV/3rd_KF_try/hough_section/"+str(q)+".jpg", temp)
         
         filter_lines(lines, prev_Q_l, prev_Q_r, i, temp2, temp, no_line_cnt[2*i], no_line_cnt[2*i+1], all_lines_for_filtering, all_lines) #todo pass line dist threshold
-    print(all_lines)
+    # print(all_lines)
     for point_l, point_r in zip(prev_Q_l, prev_Q_r):
         cv2.circle(temp2, point_l[0:2], 7, (0, 0, 255), 2)
         cv2.circle(temp2, point_r[0:2], 7, (0, 0, 255), 2)
@@ -507,18 +513,26 @@ def gaussian_transform(x, mu, sigma):
 
 
 # sigmoid 삭제, gaussian 도입
-def find_best_const(bev):
+def find_best_const(bev, iteration, max_val_queue, iteration_interval=1000):
     x, y = 150, 480
     k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     dilate = cv2.dilate(bev, k, iterations=2)
     cv2.imshow("dilate", dilate)
 
-    max_val = np.min(dilate[y-2:y+3, x-40:x+40])
-    dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
-    cv2.imshow("dilate_shifted", dilate_shifted)
-    # masked_image = np.where((dilate_shifted > 15) & (dilate_shifted < 245), dilate_shifted, 0)
-    # cv2.imshow("masked_image", masked_image)
+    # Calculate max_val every 'iteration_interval' times
+    if iteration % iteration_interval == 0:
+        max_val = np.min(dilate[y-2:y+3, x-40:x+40])
+        max_val_queue.append(max_val)
+    
+    if len(max_val_queue) == 0:
+        raise ValueError("The max_val_queue is empty.")
 
+    # Calculate the average of the values in the queue
+    average_max_val = np.mean(max_val_queue)
+    print(average_max_val)
+
+    dilate_shifted = np.where(dilate == 0, 0, int(average_max_val) - dilate)
+    cv2.imshow("dilate_shifted", dilate_shifted)
 
     mu, sigma = 170, 50  # 평균과 표준 편차 값 설정
     filtered = gaussian_transform(dilate_shifted, mu, sigma)

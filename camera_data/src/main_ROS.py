@@ -19,7 +19,7 @@ from kalman_filter_3rd import kalman_filter
 from avg_input import *
 from funcs import *
 import config
-
+from collections import deque
 
 
 class PosePublisher:
@@ -36,6 +36,8 @@ class PosePublisher:
         self.prev_esti = None
         self.frame_count = 0
         self.start_time = time.time()
+        self.max_val_queue = deque(maxlen=50)
+        self.iteration = 0
 
         # Subscribe to camera info topics once to get the camera parameters
         self.rgb_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback, "rgb")
@@ -76,20 +78,21 @@ class PosePublisher:
 
         
     def lane_det_main(self, raw_img, bev_pts):    
-        print()
+        # print()
         print(f"--------{config.q}--------")
         
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
-        canny_dilate = find_best_const(bev)
+        # canny_dilate = find_best_const(bev)
+        canny_dilate = find_best_const(bev, self.iteration, self.max_val_queue)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
         
         if config.initial_not_found:
-            print("@@@@@@@@@ FINDING INITIAL LANE @@@@@@@@@")
+            # print("@@@@@@@@@ FINDING INITIAL LANE @@@@@@@@@")
             lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section_initial(canny_dilate, self.no_line_cnt)
             # R = np.zeros((6, 1))
         else:
-            print("@@@@@@@@@ INITIAL LANE FOUND @@@@@@@@@")
+            # print("@@@@@@@@@ INITIAL LANE FOUND @@@@@@@@@")
             lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section(canny_dilate, self.prev_Q_l, self.prev_Q_r, self.no_line_cnt)
             R = R_set_considering_control_points(Q_l, Q_r, self.prev_esti, self.no_line_cnt)
         
