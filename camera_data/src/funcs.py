@@ -379,11 +379,8 @@ def min_dist_set(no_line_cnt, lines_in_section):
 
 def gaussian_transform(image, mu, sigma):
     img_float = image.astype(np.float32)
-    gaussian_pdf = norm.pdf(img_float, mu, sigma)
-    gaussian_pdf = gaussian_pdf / np.max(gaussian_pdf)
-    transformed_img = (gaussian_pdf * 255).astype(np.uint8)
-    return transformed_img
-
+    gaussian_img = np.exp(-0.5 * ((img_float - mu) / sigma) ** 2) * 255
+    return gaussian_img.astype(np.uint8)
 
 def roi_extractor(img, x1, y1, x2, y2):
     mask = np.zeros_like(img)
