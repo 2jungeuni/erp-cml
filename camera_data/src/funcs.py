@@ -42,20 +42,20 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
     x, y = 150, 480
     k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 10))
     dilate = cv2.dilate(bev, k, iterations=2)
-    cv2.imshow("dilate", dilate)
+    # cv2.imshow("dilate", dilate)
     blur = cv2.GaussianBlur(dilate,(5,5),0)
     ret3, th3 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    cv2.imshow("thres3", th3)
+    # cv2.imshow("thres3", th3)
     if iteration % iteration_interval == 0:
         max_val = np.max(dilate[y-2:y+3, x-40:x+40])
         max_val_queue.append(max_val)
-        print(np.mean(max_val_queue))
+        # print(np.mean(max_val_queue))
 
     dilate_shifted = np.where(dilate == 0, 0, int(np.mean(max_val_queue)) - dilate)
-    cv2.imshow("dilate_shifted", dilate_shifted)
+    # cv2.imshow("dilate_shifted", dilate_shifted)
 
     mu, sigma = 180, 50  # 평균과 표준 편차 값 설정
-    max_percent = 15
+    max_percent = 20
     filtered = gaussian_transform(dilate_shifted, mu, sigma)
     cv2.imshow("gaussian", filtered)
     hist = cv2.calcHist([filtered], [0], None, [256], [0, 256]).flatten()
@@ -64,7 +64,7 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
     cv2.imshow("thres2", thres2)
 
     canny_dilate = cv2.Canny(thres2, 0, 255)
-    cv2.imshow("canny_dilate", canny_dilate)
+    # cv2.imshow("canny_dilate", canny_dilate)
 
     num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(canny_dilate)
     new_binary_img = np.zeros_like(canny_dilate)
@@ -335,7 +335,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
             cv2.circle(temp, point_r[0:2], 7, (255, 255, 255), 2)
         
         
-    cv2.imshow("Final lanes before filtering", temp2)
+    # cv2.imshow("Final lanes before filtering", temp2)
     cv2.imshow("Final lanes after filtering", temp)
     
     return all_lines, temp, Q_l, Q_r

@@ -24,7 +24,7 @@ from collections import deque
 
 class PosePublisher:
     def __init__(self):
-        # self.pos_pub = rospy.Publisher("/reference_pos", PointStamped, queue_size=10)
+        self.pos_pub = rospy.Publisher("/reference_pos", PointStamped, queue_size=10)
         self.rgb_info = None
         self.depth_info = None
         
@@ -38,6 +38,7 @@ class PosePublisher:
         self.frame_count = 0
         self.start_time = time.time()
         self.min_val_queue = deque(maxlen=50)
+        self.final = None
 
         # Subscribe to camera info topics once to get the camera parameters
         self.rgb_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback, "rgb")
@@ -147,10 +148,10 @@ class PosePublisher:
 
         if img is not None:
             newwarp1 = cv2.warpPerspective(img, inv_matrix, (raw_img.shape[1], raw_img.shape[0]))
-            final = cv2.addWeighted(raw_img, 1, newwarp1, 1, 0) # original 이미지에 복구한 이미지 합성
+            self.final = cv2.addWeighted(raw_img, 1, newwarp1, 1, 0) # original 이미지에 복구한 이미지 합성
             
             # cv2.imshow('B-spline', img)
-            cv2.imshow('Final', final)
+            # cv2.imshow('Final', self.final)
             # cv2.imwrite("visualizations/unist_final/"+str(config.q)+".jpg", final)
         
         
@@ -204,35 +205,46 @@ class PosePublisher:
             bevpts = bevpts[:, np.newaxis, :]  # Add the required dimension
         img_pts = cv2.perspectiveTransform(bevpts, inv_matrix)
         img_pts = img_pts[:, 0, :].astype(int)
+        # print(img_pts)
         # for pt in img_pts: # visualization
-        #     cv2.circle(final, pt, 7, (255,0,0), 2)
-        # cv2.imshow('Final', final)
+        #     cv2.circle(self.final, pt, 3, (255,0,0), 1)
+        # cv2.imshow('Final?', self.final)
 
         #! 2. X_CAR -> img
-        cam_pts = config.extrinsic @ np.array([config.REF_POINT[0],config.REF_POINT[1], config.REF_POINT[2], 1])
+        cam_pts = np.linalg.inv(config.extrinsic) @ np.array([config.REF_POINT[0],config.REF_POINT[1], config.REF_POINT[2], 1])
         img_pts_hom = rgb_intrinsic @ cam_pts[:3]
         ref_x, ref_y = img_pts_hom[:2] / img_pts_hom[2]
-        # cv2.circle(final, (int(ref_x), int(ref_y)), 3, (0,255,0), -1) # visualization
-        # cv2.imshow('asdasd', final)
-        
-        #! 3. Find a ref point on lane
-        found_point = None
-        for pt in img_pts:
-            x, y = pt[0], pt[1]
-            if x == int(ref_x):
-                found_point = (x, y)
-                print("REF POINT FOUND")
-                break
+        ref_x, ref_y = int(ref_x), int(ref_y)
+        # cv2.circle(self.final, (int(ref_x), int(ref_y)), 3, (0,255,0), -1) # visualization
+        # cv2.imshow('asdasd', self.final)
+
+
+
+        # #! 3. Find a ref point on lane
+        differences = np.abs(img_pts[:, 0] - ref_y)
+        min_index = np.argmin(differences)
+        closest_x = img_pts[min_index, 0]
+
 
         #! found ref pt -> world
-        if found_point == None:
+        # print(closest_x, ref_x, ref_y)
+        cv2.circle(self.final, (closest_x, ref_y), 3, (0,255,0), -1) # visualization
+        cv2.imshow('reference_point', self.final)
+        if closest_x == None:
             return
         else:
-            depth_value = cv_depth[found_point[0], found_point[1]] * 0.1  # mm -> cm
-            cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([found_point[0], found_point[1], 1])
+            depth_value = cv_depth[ref_y, closest_x] * 0.1  # mm -> cm
+            cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([closest_x, ref_y, 1])
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
             world_target_point = world_coords[:3]
             print(world_target_point)
+        refpose = PointStamped()
+        refpose.header.stamp = rospy.Time.now()
+        refpose.header.frame_id = "base_link"
+        refpose.point.x = world_target_point[0]
+        refpose.point.y = world_target_point[1]
+        refpose.point.z = world_target_point[2]
+        self.pos_pub.publish(refpose)
 
 
 

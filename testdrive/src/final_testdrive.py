@@ -37,7 +37,7 @@ class ERPtestdrive:
         speed = 0
         steer = 0
         if self.e_stop == 0: # if emergency stop is not working
-            if self.encoder <= self.initial_encoder + 200: # while car drives about 2.4m
+            if self.encoder <= self.initial_encoder + 4000: # while car drives about 2.4m
                 brake = 0
                 speed = 20
                 target_x = data.point.x  # 차량의 원점 기준 얼마나 앞의 지점을 기준으로 삼을지
@@ -63,6 +63,6 @@ class ERPtestdrive:
 if __name__ == "__main__":
     rospy.init_node("testdrive")
     node = ERPtestdrive()
-    rate = rospy.Rate(50)
+    rate = rospy.Rate(1)
     while not rospy.is_shutdown():
         rate.sleep()
