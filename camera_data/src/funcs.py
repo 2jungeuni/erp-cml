@@ -37,30 +37,30 @@ def BEV(img, bev_pts):
 
 
 
-def preprocessing(bev, iteration, max_val_queue, iteration_interval=1000):
+def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
     # sigmoid 삭제, gaussian 도입
     x, y = 150, 480
-    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 10))
     dilate = cv2.dilate(bev, k, iterations=2)
     cv2.imshow("dilate", dilate)
-
+    blur = cv2.GaussianBlur(dilate,(5,5),0)
+    ret3, th3 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    cv2.imshow("thres3", th3)
     if iteration % iteration_interval == 0:
-        max_val = np.min(dilate[y-2:y+3, x-40:x+40])
+        max_val = np.max(dilate[y-2:y+3, x-40:x+40])
         max_val_queue.append(max_val)
-    if len(max_val_queue) == 0:
-        raise ValueError("The max_val_queue is empty.")
+        print(np.mean(max_val_queue))
 
-    average_max_val = np.mean(max_val_queue)
-    print(average_max_val)
-
-    dilate_shifted = np.where(dilate == 0, 0, int(average_max_val) - dilate)
+    dilate_shifted = np.where(dilate == 0, 0, int(np.mean(max_val_queue)) - dilate)
     cv2.imshow("dilate_shifted", dilate_shifted)
 
-    mu, sigma = 170, 50  # 평균과 표준 편차 값 설정
+    mu, sigma = 180, 50  # 평균과 표준 편차 값 설정
+    max_percent = 15
     filtered = gaussian_transform(dilate_shifted, mu, sigma)
     cv2.imshow("gaussian", filtered)
-
-    ret, thres2 = cv2.threshold(filtered, 200, 255, cv2.THRESH_BINARY)
+    hist = cv2.calcHist([filtered], [0], None, [256], [0, 256]).flatten()
+    threshold = np.searchsorted(np.cumsum(hist), bev.size * (1 - 0.01 * max_percent))
+    ret, thres2 = cv2.threshold(filtered, threshold, 255, cv2.THRESH_BINARY)
     cv2.imshow("thres2", thres2)
 
     canny_dilate = cv2.Canny(thres2, 0, 255)
@@ -74,6 +74,7 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=1000):
             new_binary_img = cv2.bitwise_or(new_binary_img, component_mask)
 
     return new_binary_img
+
 
 
 
@@ -335,7 +336,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
         
         
     cv2.imshow("Final lanes before filtering", temp2)
-    # cv2.imshow("Final lanes after filtering", temp)
+    cv2.imshow("Final lanes after filtering", temp)
     
     return all_lines, temp, Q_l, Q_r
 

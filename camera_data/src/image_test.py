@@ -507,53 +507,120 @@
 # cv2.waitKey(0)
 
 
+# # sigmoid 삭제, 가우시안 도입
+# import cv2
+# import numpy as np
+# from scipy.stats import norm
+
+# def gaussian_transform(x, mu, sigma):
+#     img_float = x.astype(np.float32)
+#     gaussian_pdf = norm.pdf(img_float, mu, sigma)
+#     gaussian_pdf = gaussian_pdf / np.max(gaussian_pdf)  # Normalize to range [0, 1]
+#     transformed_img = (gaussian_pdf * 255).astype(np.uint8)  # Scale to range [0, 255]
+#     return transformed_img
+
+# image_path = 'aa.png'
+# bev = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+# x, y = 150, 480
+# best_image = None
+
+# k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+# dilate = cv2.dilate(bev, k, iterations=2)
+# cv2.imshow("dilate", dilate)
+
+# max_val = np.min(dilate[y-2:y+3, x-40:x+40])
+# print(max_val)  # 이 값을 1초에 한번씩 긁어와서 저장한 다음 10짜리 리스트에 넣고 평균낸 값 사용하기?
+# dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
+# cv2.imshow("dilate_shifted", dilate_shifted)
+
+# # Gaussian 변환 적용
+# mu, sigma = 170, 50  # 평균과 표준 편차 값 설정
+# filtered = gaussian_transform(dilate_shifted, mu, sigma)
+# cv2.imshow("gaussian", filtered)
+
+# ret, thres2 = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+# cv2.imshow("thres2", thres2)
+
+
+# canny_dilate = cv2.Canny(thres2, 0, 255)
+# cv2.imshow("canny_dilate", canny_dilate)
+
+# num_labels, labels_im = cv2.connectedComponents(canny_dilate)
+# new_binary_img = np.zeros_like(canny_dilate)
+# for label in range(1, num_labels):  # 0은 배경이므로 제외
+#     component = (labels_im == label).astype(np.uint8) * 255
+#     if cv2.countNonZero(component) > 50:
+#         new_binary_img = cv2.bitwise_or(new_binary_img, component)
+
+# lines = cv2.HoughLinesP(new_binary_img, 1, np.pi/180, threshold=70, minLineLength=100, maxLineGap=50)
+
+
+# best_image = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
+# for line in lines:
+#     x1, y1, x2, y2 = line[0]
+#     cv2.line(best_image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+#     cv2.imshow("best_line", best_image)
+# cv2.waitKey(0)
+
+
+
 # sigmoid 삭제, 가우시안 도입
 import cv2
 import numpy as np
-from scipy.stats import norm
+from collections import deque
 
-def gaussian_transform(x, mu, sigma):
-    img_float = x.astype(np.float32)
-    gaussian_pdf = norm.pdf(img_float, mu, sigma)
-    gaussian_pdf = gaussian_pdf / np.max(gaussian_pdf)  # Normalize to range [0, 1]
-    transformed_img = (gaussian_pdf * 255).astype(np.uint8)  # Scale to range [0, 255]
-    return transformed_img
+def gaussian_transform(image, mu, sigma):
+    img_float = image.astype(np.float32)
+    gaussian_img = np.exp(-0.5 * ((img_float - mu) / sigma) ** 2) * 255
+    return gaussian_img.astype(np.uint8)
 
-image_path = 'aa.png'
+def preprocessing(bev, iteration, max_val_queue, iteration_interval=1000):
+    # sigmoid 삭제, gaussian 도입
+    x, y = 150, 480
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    dilate = cv2.dilate(bev, k, iterations=2)
+    cv2.imshow("dilate", dilate)
+
+    if iteration % iteration_interval == 0:
+        max_val = np.min(dilate[y-2:y+3, x-40:x+40])
+        max_val_queue.append(max_val)
+
+    dilate_shifted = np.where(dilate == 0, 0, int(np.mean(max_val_queue)) - dilate)
+    cv2.imshow("dilate_shifted", dilate_shifted)
+
+    mu, sigma = 180, 50  # 평균과 표준 편차 값 설정
+    max_percent = 20
+    filtered = gaussian_transform(dilate_shifted, mu, sigma)
+    cv2.imshow("gaussian", filtered)
+    hist = cv2.calcHist([filtered], [0], None, [256], [0, 256]).flatten()
+    threshold = np.searchsorted(np.cumsum(hist), bev.size * (1 - 0.01 * max_percent))
+    ret, thres2 = cv2.threshold(filtered, threshold, 255, cv2.THRESH_BINARY)
+    cv2.imshow("thres2", thres2)
+
+    canny_dilate = cv2.Canny(thres2, 0, 255)
+    cv2.imshow("canny_dilate", canny_dilate)
+
+    num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(canny_dilate)
+    new_binary_img = np.zeros_like(canny_dilate)
+    for label in range(1, num_labels):  # 0은 배경이므로 제외
+        if stats[label, cv2.CC_STAT_AREA] > 100:  # Component area size check
+            component_mask = (labels_im == label).astype(np.uint8) * 255
+            new_binary_img = cv2.bitwise_or(new_binary_img, component_mask)
+
+    return new_binary_img
+
+
+
+
+image_path = 'aaa.png'
 bev = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
-x, y = 150, 480
-best_image = None
-
-k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-dilate = cv2.dilate(bev, k, iterations=2)
-cv2.imshow("dilate", dilate)
-
-max_val = np.min(dilate[y-2:y+3, x-40:x+40])
-print(max_val)  # 이 값을 1초에 한번씩 긁어와서 저장한 다음 10짜리 리스트에 넣고 평균낸 값 사용하기?
-dilate_shifted = np.where(dilate == 0, 0, max_val - dilate)
-cv2.imshow("dilate_shifted", dilate_shifted)
-
-# Gaussian 변환 적용
-mu, sigma = 170, 50  # 평균과 표준 편차 값 설정
-filtered = gaussian_transform(dilate_shifted, mu, sigma)
-cv2.imshow("gaussian", filtered)
-
-ret, thres2 = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-cv2.imshow("thres2", thres2)
+min_val_queue = deque(maxlen=50)
+new_binary_img = preprocessing(bev,0,min_val_queue)
 
 
-canny_dilate = cv2.Canny(thres2, 0, 255)
-cv2.imshow("canny_dilate", canny_dilate)
-
-num_labels, labels_im = cv2.connectedComponents(canny_dilate)
-new_binary_img = np.zeros_like(canny_dilate)
-for label in range(1, num_labels):  # 0은 배경이므로 제외
-    component = (labels_im == label).astype(np.uint8) * 255
-    if cv2.countNonZero(component) > 50:
-        new_binary_img = cv2.bitwise_or(new_binary_img, component)
-
-lines = cv2.HoughLinesP(new_binary_img, 1, np.pi/180, threshold=70, minLineLength=100, maxLineGap=50)
+lines = cv2.HoughLinesP(new_binary_img, 1, np.pi/180, threshold=60, minLineLength=100, maxLineGap=50)
 
 
 best_image = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)

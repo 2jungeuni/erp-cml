@@ -38,7 +38,6 @@ class PosePublisher:
         self.frame_count = 0
         self.start_time = time.time()
         self.min_val_queue = deque(maxlen=50)
-        self.iteration = 0
 
         # Subscribe to camera info topics once to get the camera parameters
         self.rgb_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback, "rgb")
@@ -54,10 +53,10 @@ class PosePublisher:
 
         
     def lane_det_main(self, raw_img, bev_pts):    
-        print(f"--------{config.q}--------")
+        # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
-        canny_dilate = preprocessing(bev, self.iteration, self.min_val_queue)
+        canny_dilate = preprocessing(bev, config.q, self.min_val_queue)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
         
         if config.initial_not_found:
@@ -159,7 +158,7 @@ class PosePublisher:
         if self.frame_count % 100 == 0:
             end_time = time.time()
             fps = self.frame_count / (end_time - self.start_time)
-            print("Processed {0} frames in {1:.2f} seconds, approx FPS: {2:.2f}".format(self.frame_count, end_time - self.start_time, fps))
+            # print("Processed {0} frames in {1:.2f} seconds, approx FPS: {2:.2f}".format(self.frame_count, end_time - self.start_time, fps))
             self.frame_count = 0
             self.start_time = time.time()
             # cv2.waitKey(1000)
@@ -189,7 +188,7 @@ class PosePublisher:
         #--------------------------------
         
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
-        print(config.initial_not_found)
+        # print(config.initial_not_found)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
 
         if self.lane_det_main(cv_rgb, bev_pts) == None:
