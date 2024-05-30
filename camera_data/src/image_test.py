@@ -593,6 +593,9 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=1000):
     max_percent = 20
     filtered = gaussian_transform(dilate_shifted, mu, sigma)
     cv2.imshow("gaussian", filtered)
+    # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    # img2 = clahe.apply(filtered)
+    # cv2.imshow("clahe", img2)
     hist = cv2.calcHist([filtered], [0], None, [256], [0, 256]).flatten()
     threshold = np.searchsorted(np.cumsum(hist), bev.size * (1 - 0.01 * max_percent))
     ret, thres2 = cv2.threshold(filtered, threshold, 255, cv2.THRESH_BINARY)
@@ -613,7 +616,7 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=1000):
 
 
 
-image_path = 'aaa.png'
+image_path = 'a.png'
 bev = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
 min_val_queue = deque(maxlen=50)

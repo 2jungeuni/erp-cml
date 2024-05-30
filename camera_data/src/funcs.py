@@ -2,7 +2,6 @@ import numpy as np
 import cv2
 import math
 import config as config
-from scipy.stats import norm
 
 
 
@@ -57,11 +56,11 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
     mu, sigma = 180, 50  # 평균과 표준 편차 값 설정
     max_percent = 20
     filtered = gaussian_transform(dilate_shifted, mu, sigma)
-    cv2.imshow("gaussian", filtered)
+    # cv2.imshow("gaussian", filtered)
     hist = cv2.calcHist([filtered], [0], None, [256], [0, 256]).flatten()
     threshold = np.searchsorted(np.cumsum(hist), bev.size * (1 - 0.01 * max_percent))
     ret, thres2 = cv2.threshold(filtered, threshold, 255, cv2.THRESH_BINARY)
-    cv2.imshow("thres2", thres2)
+    # cv2.imshow("thres2", thres2)
 
     canny_dilate = cv2.Canny(thres2, 0, 255)
     # cv2.imshow("canny_dilate", canny_dilate)
@@ -336,7 +335,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
         
         
     # cv2.imshow("Final lanes before filtering", temp2)
-    cv2.imshow("Final lanes after filtering", temp)
+    # cv2.imshow("Final lanes after filtering", temp)
     
     return all_lines, temp, Q_l, Q_r
 

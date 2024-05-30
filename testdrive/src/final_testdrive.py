@@ -37,14 +37,14 @@ class ERPtestdrive:
         speed = 0
         steer = 0
         if self.e_stop == 0: # if emergency stop is not working
-            if self.encoder <= self.initial_encoder + 4000: # while car drives about 2.4m
-                brake = 0
-                speed = 20
-                target_x = data.point.x  # 차량의 원점 기준 얼마나 앞의 지점을 기준으로 삼을지
-                delta_y = -1 * data.point.y
-                Ld_power = target_x**2 + delta_y**2
-                steer = np.rad2deg(np.arctan(2 * CAR_LENGTH * delta_y / Ld_power))
-                print("steer(deg): ", steer)
+            # if self.encoder <= self.initial_encoder + 4000: # while car drives about 2.4m
+            brake = 0
+            speed = 20
+            target_x = data.point.x  # 차량의 원점 기준 얼마나 앞의 지점을 기준으로 삼을지
+            delta_y = -1 * data.point.y
+            Ld_power = target_x**2 + delta_y**2
+            steer = np.rad2deg(np.arctan(2 * CAR_LENGTH * delta_y / Ld_power))
+            print("steer(deg): ", steer)
 
         speed_msg = UInt8()
         speed_msg.data = speed
