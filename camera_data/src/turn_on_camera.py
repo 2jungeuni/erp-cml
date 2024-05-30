@@ -3,7 +3,6 @@ import numpy as np
 import rospy
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge
-from datetime import datetime
 
 def get_camera_info(frame, profile):
     intrinsics = profile.as_video_stream_profile().get_intrinsics()
