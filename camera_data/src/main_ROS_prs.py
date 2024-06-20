@@ -7,9 +7,7 @@ import time
 import copy
 
 import rospy
-import message_filters
-from message_filters import ApproximateTimeSynchronizer
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PointStamped, Polygon, Point32
 from sensor_msgs.msg import Image, CameraInfo
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -25,6 +23,8 @@ from collections import deque
 class PosePublisher:
     def __init__(self):
         self.pos_pub = rospy.Publisher("/reference_pos", PointStamped, queue_size=10)
+        self.image_pub = rospy.Publisher('/camera/color/image_with_markers', Image, queue_size=10)
+        self.marker_pub = rospy.Publisher('/points_topic', Polygon, queue_size=10)
         self.rgb_info = None
         self.depth_info = None
         
@@ -76,7 +76,7 @@ class PosePublisher:
             print(e)
             return
         #--------------------------------
-        cv_rgb = cv2.bitwise_not(cv_rgb)
+        # cv_rgb = cv2.bitwise_not(cv_rgb)
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
         # print(config.initial_not_found)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
@@ -85,6 +85,13 @@ class PosePublisher:
             return
         else:
             final_Q_l, final_Q_r, bspline_est_left_pts, bspline_est_right_pts, inv_matrix = self.lane_det_main(cv_rgb, bev_pts)
+
+        polygon = Polygon()
+        for point in bspline_est_left_pts:
+            polygon.points.append(Point32(x=point[0], y=point[1], z=0.0))
+        for point in bspline_est_right_pts:
+            polygon.points.append(Point32(x=point[0], y=point[1], z=0.0))
+        self.marker_pub.publish(polygon)
         
         #! bev img pts -> img -> world -> mid point
         #! 1. bev pts -> img pts   (mid lane)
@@ -118,7 +125,7 @@ class PosePublisher:
         #! found ref pt -> world
         print(closest_x, ref_x, ref_y)
         cv2.circle(self.final, (closest_x, ref_y), 3, (0,255,0), -1) # visualization
-        cv2.imshow('reference_point', self.final)
+        # cv2.imshow('reference_point', self.final)
         if closest_x == None:
             return
         else:
@@ -134,8 +141,12 @@ class PosePublisher:
         refpose.point.y = world_target_point[1]
         refpose.point.z = world_target_point[2]
         self.pos_pub.publish(refpose)
+        self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
 
-    def lane_det_main(self, raw_img, bev_pts):    
+
+
+    def lane_det_main(self, raw_img, bev_pts):
+            
         # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
@@ -232,8 +243,9 @@ class PosePublisher:
             newwarp1 = cv2.warpPerspective(img, inv_matrix, (raw_img.shape[1], raw_img.shape[0]))
             self.final = cv2.addWeighted(raw_img, 1, newwarp1, 1, 0) # original 이미지에 복구한 이미지 합성
             
+            
             # cv2.imshow('B-spline', img)
-            # cv2.imshow('Final', self.final)
+            cv2.imshow('Final', self.final)
             # cv2.imwrite("visualizations/unist_final/"+str(config.q)+".jpg", final)
         
         

@@ -32,5 +32,8 @@ ERP 통신
 - `rosrun erp_com receiver.py`
 - `rosrun erp_com sender.py`
 
+Rviz에서 확인하기(rviz 따로 켤 필요 없음)
+- `roslaunch visualization visualization.launch`
+
 ---
 * 5/15, 5/30, 6/17 날짜의 rosbag 주행데이터는 notion에 업로드 함(https://www.notion.so/rml-erp42/Lab-Driving-Test-8290b640e4624a1090318b775625869a).
