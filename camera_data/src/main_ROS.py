@@ -53,9 +53,15 @@ class PosePublisher:
 
 
         
-    def lane_det_main(self, raw_img, bev_pts):    
+    def lane_det_main(self, raw_img, bev_pts):
+            
         # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
+        #bev_pts:  [(189.971023694357, 235.58997909096564), 
+        # (454.1049081489488, 237.73817648097221), 
+        # (762.3597599432379, 322.98500567756497), 
+        # (-108.69989385309384, 315.68653648707925)]
+
         bev, inv_matrix = BEV(gray, bev_pts)
         canny_dilate = preprocessing(bev, config.q, self.min_val_queue)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
@@ -191,7 +197,6 @@ class PosePublisher:
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
         # print(config.initial_not_found)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
-
         if self.lane_det_main(cv_rgb, bev_pts) == None:
             return
         else:
@@ -205,10 +210,10 @@ class PosePublisher:
             bevpts = bevpts[:, np.newaxis, :]  # Add the required dimension
         img_pts = cv2.perspectiveTransform(bevpts, inv_matrix)
         img_pts = img_pts[:, 0, :].astype(int)
-        # print(img_pts)
-        # for pt in img_pts: # visualization
-        #     cv2.circle(self.final, pt, 3, (255,0,0), 1)
-        # cv2.imshow('Final?', self.final)
+        print(img_pts)
+        for pt in img_pts: # visualization
+            cv2.circle(self.final, pt, 3, (255,0,0), 1)
+        cv2.imshow('Final?', self.final)
 
         #! 2. X_CAR -> img
         cam_pts = np.linalg.inv(config.extrinsic) @ np.array([config.REF_POINT[0],config.REF_POINT[1], config.REF_POINT[2], 1])

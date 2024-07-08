@@ -35,12 +35,31 @@ def BEV(img, bev_pts):
     return bev, inv_matrix
 
 
+def preprocessing_newnew(bev):
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 10))
+    k2 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 1))
+    gradient = cv2.morphologyEx(bev, cv2.MORPH_GRADIENT, k2)
+    # cv2.imshow("gradient", gradient)
+
+    max_percent = 9
+    hist = cv2.calcHist([gradient], [0], None, [256], [0, 256])
+    threshold = np.searchsorted(np.cumsum(hist), bev.size * (1 - 0.01 * max_percent))
+    ret, thres2 = cv2.threshold(gradient, threshold, 255, cv2.THRESH_BINARY)
+    reopening = cv2.morphologyEx(thres2, cv2.MORPH_OPEN, k)
+    reclosing = cv2.morphologyEx(reopening, cv2.MORPH_CLOSE, k)
+    dilate = cv2.dilate(reclosing, k2, iterations=2)
+    # cv2.imshow("thres3", dilate)
+    canny_dilate2 = cv2.Canny(dilate, 0, 255)
+    cv2.imshow("canny_dilate2", canny_dilate2)
+    return canny_dilate2
 
 def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
     # sigmoid 삭제, gaussian 도입
     x, y = 150, 480
     k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 10))
-    dilate = cv2.dilate(bev, k, iterations=2)
+    opening = cv2.morphologyEx(bev, cv2.MORPH_OPEN, k)
+    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, k)
+    dilate = cv2.dilate(closing, k, iterations=2)
     # cv2.imshow("dilate", dilate)
     blur = cv2.GaussianBlur(dilate,(5,5),0)
     ret3, th3 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
@@ -63,7 +82,7 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
     # cv2.imshow("thres2", thres2)
 
     canny_dilate = cv2.Canny(thres2, 0, 255)
-    # cv2.imshow("canny_dilate", canny_dilate)
+    cv2.imshow("canny_dilate", canny_dilate)
 
     num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(canny_dilate)
     new_binary_img = np.zeros_like(canny_dilate)
@@ -334,8 +353,8 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
             cv2.circle(temp, point_r[0:2], 7, (255, 255, 255), 2)
         
         
-    # cv2.imshow("Final lanes before filtering", temp2)
-    # cv2.imshow("Final lanes after filtering", temp)
+    cv2.imshow("Final lanes before filtering", temp2)
+    cv2.imshow("Final lanes after filtering", temp)
     
     return all_lines, temp, Q_l, Q_r
 

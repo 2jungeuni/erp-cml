@@ -150,7 +150,8 @@ class PosePublisher:
         # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
-        canny_dilate = preprocessing(bev, config.q, self.min_val_queue)
+        canny_dilate = preprocessing_newnew(bev)
+        # canny_dilate = preprocessing(bev, config.q, self.min_val_queue)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
         
         if config.initial_not_found:
