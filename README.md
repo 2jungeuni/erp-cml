@@ -1,6 +1,6 @@
 # Autonomous Drive with Scout-Mini
 
-코드 다운 방법(vscode 사용시)
+### 코드 다운(vscode 사용시)
 
 1. 터미널에서 workspace 및 src 폴더 생성 (ex) mkdir -p scout_ws/src)
 2. vscode 실행
@@ -10,7 +10,7 @@
 6. 터미널의 scout_ws폴더에서 catkin_make로 빌드 후 코드 실행하기
 
 ---
-Scout-Mini 초기설정\
+### Scout-Mini 초기설정
 https://github.com/agilexrobotics/scout_ros 을 참고해서 패키지 설치 후 빌드 진행
 
 
@@ -31,14 +31,11 @@ odometry publsih & 좌표 설정
 
 
 ---
-실행하기 (따로 roscore를 실행해두면 편함)
+### 코드 실행
 
 카메라 실행
-- `roslaunch realsense2_camera rs_camera.launch color_width:=640 color_height:=360 color_fps:=30 depth_width:=640 depth_height:=360 depth_fps:=30`
-- 또는 `roslaunch realsense2_camera rs_camera.launch` 
-
---> `rosrun camera_data turn_on_camera.py`쓰기 
-(모든 rostopic publish대신 pyrealsense를 사용하여 필요한 토픽만 생성 하여 훨씬 가벼움)
+- `roslaunch realsense2_camera rs_camera.launch` 
+- 또는 `rosrun camera_data turn_on_camera.py`
 
 카메라 이미지 처리
 - `rosrun camera_data image_analysis2.py`  -> 7층 주행
@@ -48,7 +45,7 @@ odometry publsih & 좌표 설정
 reference point를 기반으로 차량 제어
 - `rosrun testdrive final_testdrive.py`
 
-Scout-Mini bringup하기
+Scout-Mini bringup하기 (CAN 통신?)
 - `roslaunch scout_bringup scout_mini_robot_base.launch`
 
 Rviz에서 확인하기(rviz 따로 켤 필요 없음)
