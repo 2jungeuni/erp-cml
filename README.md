@@ -1,13 +1,33 @@
-Code for control ERP-42
+# Autonomous Drive with Scout-Mini
 
-코드 사용 방법(vscode 사용시)
+코드 다운 방법(vscode 사용시)
 
-1. 터미널에서 workspace 및 src 폴더 생성 (ex) mkdir -p erp_ws/src)
+1. 터미널에서 workspace 및 src 폴더 생성 (ex) mkdir -p scout_ws/src)
 2. vscode 실행
 3. 왼쪽 창의 세번쩨 항목 '소스 제어' 선택 후 '리포지토리 복제' 누르기
 4. github 로그인(아마) -> erp-cml 선택
-5. erp_ws/src 폴더 안에서 레포지토리 위치시키기
-6. 터미널의 erp_ws폴더에서 catkin_make로 빌드 후 코드 실행하기
+5. scout_ws/src 폴더 안에서 레포지토리 위치시키기
+6. 터미널의 scout_ws폴더에서 catkin_make로 빌드 후 코드 실행하기
+
+---
+Scout-Mini 초기설정\
+https://github.com/agilexrobotics/scout_ros 을 참고해서 패키지 설치 후 빌드 진행
+
+
+처음 한번 실행\
+`sudo modprobe gs_usb`\
+`rosrun scout_bringup setup_can2usb.bash`\
+`rosrun scout_bringup bringup_can2usb.bash`
+
+`candump can0` → can 되는지 테스트하는 명령어\
+`roslaunch scout_bringup scout_mini_robot_base.launch` → bringup 켜기\
+`roslaunch scout_bringup scout_teleop_keyboard.launch` → keyboard로 teleop하기\
+`roslaunch scout_description display_scout_mini.launch` → RViz에서 visualization
+
+odometry publsih & 좌표 설정
+1. scout_bringup/launch/scout_mini_robot_base.launch에서 `pub_tf:= true`로 설정
+2. scout_base/src/scout_messenger.cpp에서 288, 301, 337, 350번 line을 `z = 0.183498` 로 수정
+3. RViz에서 odom을 기준으로 좌표 보이기
 
 
 ---
@@ -17,23 +37,19 @@ Code for control ERP-42
 - `roslaunch realsense2_camera rs_camera.launch color_width:=640 color_height:=360 color_fps:=30 depth_width:=640 depth_height:=360 depth_fps:=30`
 - 또는 `roslaunch realsense2_camera rs_camera.launch` 
 
---> 이제 `rosrun camera_data turn_on_camera.py`쓰기 
-(모든 rostopic publish대신 pyrealsense를 사용하여 필요한 토픽만 생성 -> 훨씬 가벼움)
+--> `rosrun camera_data turn_on_camera.py`쓰기 
+(모든 rostopic publish대신 pyrealsense를 사용하여 필요한 토픽만 생성 하여 훨씬 가벼움)
 
 카메라 이미지 처리
 - `rosrun camera_data image_analysis2.py`  -> 7층 주행
 - `rosrun camera_data main_ROS.py` -> 차선인식
 - `rosrun camera_data main_ROS_prs.py` -> ApproximateTimeSynchronizer 사용 안한 버전(depth가 늦게 들어와도 연산 가능)
 
-reference point를 기반으로 차량 제어(pure pursuit)
+reference point를 기반으로 차량 제어
 - `rosrun testdrive final_testdrive.py`
 
-ERP 통신
-- `rosrun erp_com receiver.py`
-- `rosrun erp_com sender.py`
+Scout-Mini bringup하기
+- `roslaunch scout_bringup scout_mini_robot_base.launch`
 
 Rviz에서 확인하기(rviz 따로 켤 필요 없음)
 - `roslaunch visualization visualization.launch`
-
----
-* 5/15, 5/30, 6/17 날짜의 rosbag 주행데이터는 notion에 업로드 함(https://www.notion.so/rml-erp42/Lab-Driving-Test-8290b640e4624a1090318b775625869a).
