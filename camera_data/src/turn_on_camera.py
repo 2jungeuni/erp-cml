@@ -2,6 +2,7 @@ import pyrealsense2 as rs
 import numpy as np
 import rospy
 from sensor_msgs.msg import CameraInfo, Image
+import cv2
 from cv_bridge import CvBridge
 
 def get_camera_info(frame, profile):
