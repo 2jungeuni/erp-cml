@@ -6,14 +6,12 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   geometry_msgs
-  erp_com
 )
 
 generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
-  erp_com
 )
 
 catkin_package(
