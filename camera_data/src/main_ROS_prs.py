@@ -9,7 +9,7 @@ import copy
 import rospy
 from geometry_msgs.msg import Polygon, Point32
 from sensor_msgs.msg import Image, CameraInfo
-from testdrive.msg import ReferencePoses
+from camera_data.msg import ReferencePoses
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 

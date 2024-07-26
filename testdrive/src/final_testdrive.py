@@ -1,7 +1,7 @@
 import rospy
 from geometry_msgs.msg import Point, Twist
 from nav_msgs.msg import Odometry
-from testdrive.msg import ReferencePoses
+from camera_data.msg import ReferencePoses
 import numpy as np
 import cvxpy as cp
 
