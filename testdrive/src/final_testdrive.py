@@ -1,22 +1,29 @@
 import rospy
 from geometry_msgs.msg import Point, Twist
 from nav_msgs.msg import Odometry
-from test_drive.msg import ReferencePos
+from testdrive.msg import ReferencePoses
 import numpy as np
 import cvxpy as cp
 
 class MPCController:
     def __init__(self, horizon=10):
         rospy.Subscriber("/odom", Odometry, self.odom_update)
-        rospy.Subscriber('/waypoints_topic', ReferencePos, self.waypoints_callback)
-        self.pub = rospy.Publisher('/control_command', Point, queue_size=10)
+        rospy.Subscriber('/reference_pos', ReferencePoses, sself.waypoints_callback)
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.waypoints = []
         self.horizon = horizon
         self.dt = 0.1 # time step
 
+
+    def odom_update(self, data):
+        self.odom_pose = data.pose.pose
+        self.odom_twist = data.twist.twist
+
+
     def waypoints_callback(self, data):
         self.waypoints = [(point.x, point.y) for point in data.points]
         self.run_mpc()
+
 
     def run_mpc(self):
         if len(self.waypoints) < self.horizon:
@@ -55,38 +62,15 @@ class MPCController:
 
         # get the contorl input and publish
         if prob.status == cp.OPTIMAL:
-            control_cmd = Point()
-            control_cmd.x = v.value[0] # first linear velocity control input
-            control_cmd.y = omega.value[0] # first angular velocity control input
-            control_cmd.z = 0
-            self.pub.publish(Control_cmd)
-''' 
-class ERPtestdrive:
-    def __init__(self):
-        rospy.Subscriber("/reference_pos", PointStamped, self.testdrive)
-        rospy.Subscriber("/odom", Odometry, self.odom_update)
-        self.command_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
+            control_cmd = Twist()
+            control_cmd.linear.x = v.value[0]
+            control_cmd.angular.z = omega.value[0]
+            self.pub.publish(control_cmd)
 
 
-    def odom_update(self, data):
-        self.e_stop = data.data
-
-
-    def testdrive(self, data):
-        self.x = data.Point.x
-        self.y = data.Point.y
-        self.z = data.Point.z
-
-        
-
-        command = Twist()
-        command.linear.x = 
-        command.angular.z = 
-        self.brake_pub.publish(command)
-'''
 
 if __name__ == "__main__":
-    rospy.init_node("testdrive")
+    rospy.init_node("MPCController")
     node = MPCController()
     rate = rospy.Rate(50)   # 50 Hz
     while not rospy.is_shutdown():

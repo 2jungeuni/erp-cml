@@ -58,6 +58,7 @@ def main():
     align = rs.align(align_to)
 
     try:
+        rospy.loginfo("Realsense is now publishing!")
         while not rospy.is_shutdown():
             # Wait for a coherent pair of frames: depth and color
             frames = pipeline.wait_for_frames()

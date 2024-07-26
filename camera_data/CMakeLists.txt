@@ -6,11 +6,24 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   message_filters
   cv_bridge
+  std_msgs
+  message_generation
+  geometry_msgs
+)
+
+add_message_files(
+  FILES
+  ReferencePoses.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
   geometry_msgs
 )
 
 catkin_package(
-  CATKIN_DEPENDS rospy sensor_msgs message_filters cv_bridge geometry_msgs
+  CATKIN_DEPENDS rospy sensor_msgs message_filters cv_bridge message_runtime std_msgs geometry_msgs
 )
 
 include_directories(
@@ -18,9 +31,6 @@ include_directories(
 )
 
 catkin_install_python(PROGRAMS
-  src/image_analysis.py
-  src/image_analysis2.py
-  src/main_ROS.py
   src/turn_on_camera.py
   src/main_ROS_prs.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

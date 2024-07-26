@@ -7,9 +7,9 @@ import time
 import copy
 
 import rospy
-from geometry_msgs.msg import PointStamped, Polygon, Point32
+from geometry_msgs.msg import Polygon, Point32
 from sensor_msgs.msg import Image, CameraInfo
-# from test_drive.msg import ReferencePos
+from testdrive.msg import ReferencePoses
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -22,7 +22,7 @@ import config
 
 class PosePublisher:
     def __init__(self):
-        self.pos_pub = rospy.Publisher("/reference_pos", PointStamped, queue_size=10)
+        self.pos_pub = rospy.Publisher("/reference_pos", ReferencePoses, queue_size=10)
         self.image_pub = rospy.Publisher('/camera/color/image_with_markers', Image, queue_size=10)
         self.marker_pub = rospy.Publisher('/points_topic', Polygon, queue_size=10)
         self.rgb_info = None
@@ -95,28 +95,25 @@ class PosePublisher:
         sampled_points = img_pts[indices]
         # print(sampled_points)
 
+        refpose = ReferencePoses()
+        refpose.header.stamp = rospy.Time.now()
+        refpose.header.frame_id = "base_link"
         world_coords_list = []
         cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
-        # print(cam_coords)
-        for (i, j) in sampled_points:
+        for idx, (i, j) in enumerate(sampled_points):
             depth_value = cv_depth[j, i] * 0.1  # mm -> cm
             cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
             world_target_point = world_coords[:3]
             world_coords_list.append(world_target_point)
-
-            # 참조점 출력
-            refpose = PointStamped()
-            refpose.header.stamp = rospy.Time.now()
-            refpose.header.frame_id = "base_link"
-            refpose.point.x = world_target_point[0]
-            refpose.point.y = world_target_point[1]
-            refpose.point.z = world_target_point[2]
-            self.pos_pub.publish(refpose)
-            self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
-
+            refpose.points[idx].x = world_target_point[0]
+            refpose.points[idx].y = world_target_point[1]
+            refpose.points[idx].z = world_target_point[2]
             cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
-        cv2.imshow('Final?', self.final)
+
+        self.pos_pub.publish(refpose)
+        self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
+        cv2.imshow('Final', self.final)
         
 
 
