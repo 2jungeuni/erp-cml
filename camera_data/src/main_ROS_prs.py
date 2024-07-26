@@ -111,7 +111,7 @@ class PosePublisher:
 
         world_coords_list = []
         cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
-        print(cam_coords)
+        # print(cam_coords)
         for (i, j) in sampled_points:
             depth_value = cv_depth[j, i] * 0.1  # mm -> cm
             cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
