@@ -50,7 +50,7 @@ def preprocessing_newnew(bev):
     dilate = cv2.dilate(reclosing, k2, iterations=2)
     # cv2.imshow("thres3", dilate)
     canny_dilate2 = cv2.Canny(dilate, 0, 255)
-    cv2.imshow("canny_dilate2", canny_dilate2)
+    # cv2.imshow("canny_dilate2", canny_dilate2)
     return canny_dilate2
 
 def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
@@ -248,7 +248,7 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
                 angle_r = angle(all_lines[i][1][0], all_lines[i][1][1], all_lines[i][1][2], all_lines[i][1][3])
                 angle_diff = abs(angle_l - angle_r)
                 # print("angle diff: ", angle_diff)
-                if angle_diff >= 10:
+                if angle_diff >= 100: # 10
                     # print(f"TOO LARGE ANGLE DIFFERENCE ({angle_diff}) --> DELETING")
                     real_all_lines[i][0] = []
                     real_all_lines[i][1] = []
@@ -259,16 +259,31 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
                 #- print("dist diff:",distance_l_r)
                 if i == 0:
                     sec_0_dist_dif = distance_l_r
-                else:
-                    if sec_0_dist_dif - distance_l_r > 0: # if dist in sec 0 is larger than in sec 1 is checking non-sense lane states
-                        # print(f"NON SENSE LINE (S0) ({sec_0_dist_dif}, {distance_l_r})--> DELETING")
-                        real_all_lines[0][0] = []
-                        real_all_lines[0][1] = []
-                    if distance_l_r <= 160 or distance_l_r >= 280:    # 검증 단계에서 생각나는 아이디어 있다면 쓰기
-                        # print(f"NARROW LANE WIDTH (S1)({distance_l_r})--> DELETING")
-                        real_all_lines[1][0] = []
-                        real_all_lines[1][1] = []
-                
+                # else:
+                #     if sec_0_dist_dif - distance_l_r > 0: # if dist in sec 0 is larger than in sec 1 is checking non-sense lane states
+                #         print(f"NON SENSE LINE (S0) ({sec_0_dist_dif}, {distance_l_r})--> DELETING")
+                #         real_all_lines[0][0] = []
+                #         real_all_lines[0][1] = []
+                    # if distance_l_r <= 160 or distance_l_r >= 280:    # 검증 단계에서 생각나는 아이디어 있다면 쓰기
+                    #     print(f"NARROW LANE WIDTH (S1)({distance_l_r})--> DELETING")
+                    #     real_all_lines[1][0] = []
+                    #     real_all_lines[1][1] = []
+
+        # 2024.7.26
+        l_end_dist = all_lines[0][0][2] - all_lines[1][0][0]
+        r_end_dist = all_lines[0][1][2] - all_lines[1][1][0]
+        # cv2.circle(temp, (all_lines[0][0][2], all_lines[0][0][3]), 10, (255, 255, 255), 3)
+        # cv2.circle(temp, (all_lines[1][0][0], all_lines[1][0][1]), 10, (255, 255, 255), 3)
+        # cv2.circle(temp, (all_lines[0][1][2], all_lines[0][1][3]), 10, (255, 255, 255), 3)
+        # cv2.circle(temp, (all_lines[1][1][0], all_lines[1][1][1]), 10, (255, 255, 255), 3)
+
+        if l_end_dist > 50:
+            real_all_lines[0][0] = []
+            real_all_lines[1][0] = []
+        if r_end_dist > 50:
+            real_all_lines[0][1] = []
+            real_all_lines[1][1] = []
+
                 
         #* Drawing filtered lines
         for i in range(len(real_all_lines)):
@@ -302,7 +317,7 @@ def extract_lines_in_section_initial(roi, no_line_cnt):
     for i in range(len(config.section_list)-1): #* for each section
         separated = np.copy(roi)
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=50, minLineLength=50, maxLineGap=50)
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=50, minLineLength=50, maxLineGap=100)
         filter_lines_initial(lines, i, temp2, temp, all_lines_for_filtering, all_lines) 
     
     # if lines found in all sections
@@ -334,7 +349,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
     for i in range(len(config.section_list)-1): #* for each section
         separated = np.copy(roi)
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=90, minLineLength=150, maxLineGap=50) # Probabilistic Hough Transform
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=90, minLineLength=100, maxLineGap=100) # Probabilistic Hough Transform
         
         filter_lines(lines, prev_Q_l, prev_Q_r, i, temp2, temp, no_line_cnt[2*i], no_line_cnt[2*i+1], all_lines_for_filtering, all_lines) #todo pass line dist threshold
     # print(all_lines)
@@ -344,6 +359,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
         cv2.circle(temp, point_l[0:2], 7, (0, 0, 255), 2)
         cv2.circle(temp, point_r[0:2], 7, (0, 0, 255), 2)
     Q_l, Q_r = control_point(all_lines)
+    # print(Q_l, Q_r)
     for point_l, point_r in zip(Q_l, Q_r):
         if len(point_l) > 0:
             cv2.circle(temp2, point_l[0:2], 7, (255, 255, 255), 2)
@@ -368,13 +384,13 @@ def R_set_considering_control_points(Q_l, Q_r, prev_esti, no_line_cnt):
         for i in range(len(Q_l)):
             if len(Q_l[i]) > 0:
                 dist_diff = abs(Q_l[i][0] - prev_esti[i])
-                R_[i] = dist_diff * weight[i] + 0.0000001
+                R_[i] = dist_diff * weight[i] + 1e-6
             else: # if no control point
                 R_[i] = 100000
                 
             if len(Q_r[i]) > 0:
                 diff = abs(Q_r[i][0] - prev_esti[i+3])
-                R_[i+3] = diff * weight[i+3] + 0.0000001
+                R_[i+3] = diff * weight[i+3] + 1e-6
             else: # if no control point
                 R_[i+3] = 100000
                 
@@ -484,7 +500,7 @@ def control_point(all_lines):
     # 세번째(0~3) -> 0,1이 위쪽의 x,y좌표, 2,3이 아래의 x,y좌표
     Q_l = []
     Q_r = []
-
+    print(all_lines)
     for i in range(len(all_lines)):
         if i == 0: # first line
             if len(all_lines[i][0]) > 0: # left line in section 1

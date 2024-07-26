@@ -123,7 +123,7 @@ class PosePublisher:
 
 
         #! found ref pt -> world
-        print(closest_x, ref_x, ref_y)
+        # print(closest_x, ref_x, ref_y)
         cv2.circle(self.final, (closest_x, ref_y), 3, (0,255,0), -1) # visualization
         # cv2.imshow('reference_point', self.final)
         if closest_x == None:
@@ -133,7 +133,7 @@ class PosePublisher:
             cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([closest_x, ref_y, 1])
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
             world_target_point = world_coords[:3]
-            print(world_target_point)
+            # print(world_target_point)
         refpose = PointStamped()
         refpose.header.stamp = rospy.Time.now()
         refpose.header.frame_id = "base_link"
