@@ -7,7 +7,6 @@ import time
 import copy
 
 import rospy
-from geometry_msgs.msg import Polygon, Point32
 from sensor_msgs.msg import Image, CameraInfo
 from camera_data.msg import ReferencePoses
 import cv2
@@ -24,7 +23,6 @@ class PosePublisher:
     def __init__(self):
         self.pos_pub = rospy.Publisher("/reference_pos", ReferencePoses, queue_size=10)
         self.image_pub = rospy.Publisher('/camera/color/image_with_markers', Image, queue_size=10)
-        self.marker_pub = rospy.Publisher('/points_topic', Polygon, queue_size=10)
         self.rgb_info = None
         self.depth_info = None
         
@@ -73,13 +71,6 @@ class PosePublisher:
             return
         else:
             final_Q_l, final_Q_r, bspline_est_left_pts, bspline_est_right_pts, inv_matrix = self.lane_det_main(cv_rgb, bev_pts)
-
-        polygon = Polygon()
-        for point in bspline_est_left_pts:
-            polygon.points.append(Point32(x=point[0], y=point[1], z=0.0))
-        for point in bspline_est_right_pts:
-            polygon.points.append(Point32(x=point[0], y=point[1], z=0.0))
-        self.marker_pub.publish(polygon)
         
 
         #! bev img pts -> img -> world -> mid point
@@ -99,7 +90,7 @@ class PosePublisher:
         refpose.header.stamp = rospy.Time.now()
         refpose.header.frame_id = "base_link"
         world_coords_list = []
-        cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
+        # cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
         for idx, (i, j) in enumerate(sampled_points):
             depth_value = cv_depth[j, i] * 0.1  # mm -> cm
             cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
@@ -113,7 +104,8 @@ class PosePublisher:
 
         self.pos_pub.publish(refpose)
         self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
-        cv2.imshow('Final', self.final)
+        cv2.imshow('Final?', self.final)
+        # cv2.waitKey(1)
         
 
 

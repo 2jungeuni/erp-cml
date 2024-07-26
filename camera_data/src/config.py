@@ -29,4 +29,4 @@ world_y_min = -250
 
 
 
-REF_POINT = np.array([500, 0, 0]).astype(np.float32)
+REF_POINT = np.array([80, 0, 0]).astype(np.float32)
