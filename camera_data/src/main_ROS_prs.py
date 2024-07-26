@@ -9,6 +9,7 @@ import copy
 import rospy
 from geometry_msgs.msg import PointStamped, Polygon, Point32
 from sensor_msgs.msg import Image, CameraInfo
+# from test_drive.msg import ReferencePos
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -63,7 +64,7 @@ class PosePublisher:
 
     def depth_callback(self, msg):
         self.depth_image = msg
-        # rospy.loginfo("Depth image has been updated.")    
+        # rospy.loginfo("Depth image has been updated.")
 
 
     def image_callback(self, rgb_image):
@@ -99,51 +100,38 @@ class PosePublisher:
         bevpts = np.array(final_pt, dtype=np.float32)
         if len(bevpts.shape) == 2:
             bevpts = bevpts[:, np.newaxis, :]  # Add the required dimension
-        img_pts = cv2.perspectiveTransform(bevpts, inv_matrix)
+
+
+        img_pts = cv2.perspectiveTransform(bevpts, inv_matrix).astype(int)
         img_pts = img_pts[:, 0, :].astype(int)
-        # print(img_pts)
-        # for pt in img_pts: # visualization
-        #     cv2.circle(self.final, pt, 3, (255,0,0), 1)
-        # cv2.imshow('Final?', self.final)
-
-        #! 2. X_CAR -> img
-        cam_pts = np.linalg.inv(config.extrinsic) @ np.array([config.REF_POINT[0],config.REF_POINT[1], config.REF_POINT[2], 1])
-        img_pts_hom = rgb_intrinsic @ cam_pts[:3]
-        ref_x, ref_y = img_pts_hom[:2] / img_pts_hom[2]
-        ref_x, ref_y = int(ref_x), int(ref_y)
-        # cv2.circle(self.final, (int(ref_x), int(ref_y)), 3, (0,255,0), -1) # visualization
-        # cv2.imshow('asdasd', self.final)
+        indices = np.linspace(0, len(img_pts) - 1, 10, dtype=int)
+        sampled_points = img_pts[indices]
+        # print(sampled_points)
 
 
-
-        # #! 3. Find a ref point on lane
-        differences = np.abs(img_pts[:, 0] - ref_y)
-        min_index = np.argmin(differences)
-        closest_x = img_pts[min_index, 0]
-
-
-        #! found ref pt -> world
-        # print(closest_x, ref_x, ref_y)
-        cv2.circle(self.final, (closest_x, ref_y), 3, (0,255,0), -1) # visualization
-        # cv2.imshow('reference_point', self.final)
-        if closest_x == None:
-            return
-        else:
-            depth_value = cv_depth[ref_y, closest_x] * 0.1  # mm -> cm
-            cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([closest_x, ref_y, 1])
+        world_coords_list = []
+        cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
+        # print(cam_coords)
+        for (i, j) in sampled_points:
+            depth_value = cv_depth[j, i] * 0.1  # mm -> cm
+            cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
             world_target_point = world_coords[:3]
-            # print(world_target_point)
-        refpose = PointStamped()
-        refpose.header.stamp = rospy.Time.now()
-        refpose.header.frame_id = "base_link"
-        refpose.point.x = world_target_point[0]
-        refpose.point.y = world_target_point[1]
-        refpose.point.z = world_target_point[2]
-        self.pos_pub.publish(refpose)
-        self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
+            world_coords_list.append(world_target_point)
 
+            # 참조점 출력
+            refpose = PointStamped()
+            refpose.header.stamp = rospy.Time.now()
+            refpose.header.frame_id = "base_link"
+            refpose.point.x = world_target_point[0]
+            refpose.point.y = world_target_point[1]
+            refpose.point.z = world_target_point[2]
+            self.pos_pub.publish(refpose)
+            self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
 
+            cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
+        cv2.imshow('Final?', self.final)
+        
 
     def lane_det_main(self, raw_img, bev_pts):
             

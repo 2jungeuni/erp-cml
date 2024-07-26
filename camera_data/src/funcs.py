@@ -500,7 +500,7 @@ def control_point(all_lines):
     # 세번째(0~3) -> 0,1이 위쪽의 x,y좌표, 2,3이 아래의 x,y좌표
     Q_l = []
     Q_r = []
-    print(all_lines)
+    # print(all_lines)
     for i in range(len(all_lines)):
         if i == 0: # first line
             if len(all_lines[i][0]) > 0: # left line in section 1
