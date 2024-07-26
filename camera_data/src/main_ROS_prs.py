@@ -18,7 +18,6 @@ from kalman_filter_3rd import kalman_filter
 from avg_input import *
 from funcs import *
 import config
-from collections import deque
 
 
 class PosePublisher:
@@ -38,22 +37,12 @@ class PosePublisher:
         self.prev_esti = None
         self.frame_count = 0
         self.start_time = time.time()
-        self.min_val_queue = deque(maxlen=50)
         self.final = None
         self.depth_image = None
 
-        # Subscribe to camera info topics once to get the camera parameters
         self.rgb_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback, "rgb")
-
-        # Subscribe to image topics with ApproximateTimeSynchronizer
-        # self.rgb_raw_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
         self.rgb_raw_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
-        # self.depth_raw_sub = message_filters.Subscriber("/camera/depth/image_rect_raw", Image)
         self.depth_raw_sub = rospy.Subscriber("/camera/aligned_depth_to_color/image_raw", Image, self.depth_callback)
-
-        # self.ts = ApproximateTimeSynchronizer([self.rgb_raw_sub, self.depth_raw_sub], 100, 100)
-        # self.ts.registerCallback(self.image_callback)
-
 
         
     def camera_info_callback(self, data, camera_type):
@@ -77,9 +66,7 @@ class PosePublisher:
             print(e)
             return
         #--------------------------------
-        # cv_rgb = cv2.bitwise_not(cv_rgb)
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
-        # print(config.initial_not_found)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
 
         if self.lane_det_main(cv_rgb, bev_pts) == None:
@@ -94,6 +81,7 @@ class PosePublisher:
             polygon.points.append(Point32(x=point[0], y=point[1], z=0.0))
         self.marker_pub.publish(polygon)
         
+
         #! bev img pts -> img -> world -> mid point
         #! 1. bev pts -> img pts   (mid lane)
         final_pt = (bspline_est_left_pts + bspline_est_right_pts)/2  # mid line
@@ -101,13 +89,11 @@ class PosePublisher:
         if len(bevpts.shape) == 2:
             bevpts = bevpts[:, np.newaxis, :]  # Add the required dimension
 
-
         img_pts = cv2.perspectiveTransform(bevpts, inv_matrix).astype(int)
         img_pts = img_pts[:, 0, :].astype(int)
         indices = np.linspace(0, len(img_pts) - 1, 10, dtype=int)
         sampled_points = img_pts[indices]
         # print(sampled_points)
-
 
         world_coords_list = []
         cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
@@ -133,8 +119,8 @@ class PosePublisher:
         cv2.imshow('Final?', self.final)
         
 
+
     def lane_det_main(self, raw_img, bev_pts):
-            
         # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)

@@ -7,8 +7,8 @@ import cvxpy as cp
 
 class MPCController:
     def __init__(self, horizon=10):
-        rospy.Subscribe("/odom", Odometry, self.odom_update)
-        self.sub = rospy.Subscriber('/waypoints_topic', ReferencePos, self.waypoints_callback)
+        rospy.Subscriber("/odom", Odometry, self.odom_update)
+        rospy.Subscriber('/waypoints_topic', ReferencePos, self.waypoints_callback)
         self.pub = rospy.Publisher('/control_command', Point, queue_size=10)
         self.waypoints = []
         self.horizon = horizon
@@ -83,12 +83,11 @@ class ERPtestdrive:
         command.linear.x = 
         command.angular.z = 
         self.brake_pub.publish(command)
-        
+'''
 
 if __name__ == "__main__":
     rospy.init_node("testdrive")
-    node = ERPtestdrive()
+    node = MPCController()
     rate = rospy.Rate(50)   # 50 Hz
     while not rospy.is_shutdown():
         rate.sleep()
-'''
