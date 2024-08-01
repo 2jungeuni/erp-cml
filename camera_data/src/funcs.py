@@ -17,11 +17,14 @@ def world_to_img_pts(img, intrinsic):
     
     for i in range(pts.shape[0]):
         cam_pts = np.linalg.inv(config.extrinsic) @ pts[i]
+        # cam_pts = config.extrinsic @ pts[i]
         img_pts_hom = intrinsic @ cam_pts[:3]
         x,y = img_pts_hom[:2] / img_pts_hom[2]
         img_pts.append((x, y))
         cv2.circle(img, (int(x), int(y)), 4, (0, 0, 255), -1)
+        # cv2.imshow("img", img)
 
+    
     return img_pts
 
 
@@ -349,7 +352,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
     for i in range(len(config.section_list)-1): #* for each section
         separated = np.copy(roi)
         separated = roi_extractor(separated, 0, config.section_list[i], separated.shape[1], config.section_list[i+1]) #? extract each section from img
-        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=90, minLineLength=100, maxLineGap=100) # Probabilistic Hough Transform
+        lines = cv2.HoughLinesP(separated, 1, np.pi/180, threshold=98, minLineLength=100, maxLineGap=100) # Probabilistic Hough Transform
         
         filter_lines(lines, prev_Q_l, prev_Q_r, i, temp2, temp, no_line_cnt[2*i], no_line_cnt[2*i+1], all_lines_for_filtering, all_lines) #todo pass line dist threshold
     # print(all_lines)
@@ -370,7 +373,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
         
         
     cv2.imshow("Final lanes before filtering", temp2)
-    cv2.imshow("Final lanes after filtering", temp)
+    # cv2.imshow("Final lanes after filtering", temp)
     
     return all_lines, temp, Q_l, Q_r
 

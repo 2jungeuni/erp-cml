@@ -21,7 +21,7 @@ import config
 
 class PosePublisher:
     def __init__(self):
-        self.pos_pub = rospy.Publisher("/reference_pos", ReferencePoses, queue_size=10)
+        self.pos_pub = rospy.Publisher("/ref_pos", ReferencePoses, queue_size=10)
         self.image_pub = rospy.Publisher('/camera/color/image_with_markers', Image, queue_size=10)
         self.rgb_info = None
         self.depth_info = None
@@ -51,7 +51,8 @@ class PosePublisher:
 
     def depth_callback(self, msg):
         self.depth_image = msg
-        # rospy.loginfo("Depth image has been updated.")
+        print(type(self.depth_image))
+        rospy.loginfo("Depth image has been updated.")
 
 
     def image_callback(self, rgb_image):
@@ -67,11 +68,21 @@ class PosePublisher:
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
 
+        print("TEST")
+        for i, j in bev_pts:
+            print("i,j:",i,j)
+            depth_value = cv_depth[int(j),int(i)] * 0.01  # mm -> cm
+            normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
+            cam_coords = depth_value * normalized_coord
+            world_coords = config.extrinsic @ np.append(cam_coords, 1)
+            world_target_point = world_coords[:3]
+            print(world_target_point)
+
+
         if self.lane_det_main(cv_rgb, bev_pts) == None:
             return
         else:
             final_Q_l, final_Q_r, bspline_est_left_pts, bspline_est_right_pts, inv_matrix = self.lane_det_main(cv_rgb, bev_pts)
-        
 
         #! bev img pts -> img -> world -> mid point
         #! 1. bev pts -> img pts   (mid lane)
@@ -92,8 +103,13 @@ class PosePublisher:
         world_coords_list = []
         # cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
         for idx, (i, j) in enumerate(sampled_points):
-            depth_value = cv_depth[j, i] * 0.1  # mm -> cm
-            cam_coords = depth_value * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
+            # print("i,j:",i,j)
+            depth_value = cv_depth[j,i] * 0.01  # mm -> cm
+            # print(rgb_intrinsic)
+            # print("depth", depth_value)
+            normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
+            cam_coords = depth_value * normalized_coord
+            # print(cam_coords)
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
             world_target_point = world_coords[:3]
             world_coords_list.append(world_target_point)
@@ -101,7 +117,7 @@ class PosePublisher:
             refpose.points[idx].y = world_target_point[1]
             refpose.points[idx].z = world_target_point[2]
             cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
-
+        print()
         self.pos_pub.publish(refpose)
         self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
         cv2.imshow('Final?', self.final)
@@ -110,9 +126,11 @@ class PosePublisher:
 
 
     def lane_det_main(self, raw_img, bev_pts):
+        # cv2.imshow('raw_img', raw_img)
         # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
+        cv2.imshow('bev', bev)
         canny_dilate = preprocessing_newnew(bev)
         # canny_dilate = preprocessing(bev, config.q, self.min_val_queue)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
@@ -209,7 +227,7 @@ class PosePublisher:
             
             
             # cv2.imshow('B-spline', img)
-            cv2.imshow('Final', self.final)
+            # cv2.imshow('Final', self.final)
             # cv2.imwrite("visualizations/unist_final/"+str(config.q)+".jpg", final)
         
         

@@ -46,6 +46,7 @@ reference point를 기반으로 차량 제어
 - `rosrun testdrive final_testdrive.py`
 
 Scout-Mini bringup하기 (CAN 통신?)
+- `sudo ip link set can0 up type can bitrate 500000`
 - `roslaunch scout_bringup scout_mini_robot_base.launch`
 
 Rviz에서 확인하기(rviz 따로 켤 필요 없음)
