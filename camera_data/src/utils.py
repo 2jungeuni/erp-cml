@@ -32,7 +32,7 @@ def world_to_img(img):
     # cv2.imshow("img", img)
     # cv2.waitKey(10)
 
-    return img_pts
+    return np.vstack((x, y))
 
     '''
     for i in range(pts.shape[0]):

@@ -81,12 +81,8 @@ class RefPublisher:
             return
         
         margins = world_to_img(rgb)
-        
         lane_detection = LaneDetection(config, rgb, margins)
         lane_detection.get_bev_img()
-
-        # cv2.imshow('bev', lane_detection.get_bev_img())
-        
 
     # def depth_callback(self, msg):
     #     self.depth_image = msg

@@ -21,7 +21,12 @@ extrinsic = np.array([
 # ])
 
 # lane detection
-bev_margins = np.float32([[0,0],[300,0],[300,500],[0,500]])
+bev_margin_max_x = 300
+bev_margin_max_y = 500
+bev_margins = np.float32([[0, 0],
+                          [bev_margin_max_x, 0],
+                          [bev_margin_max_x, bev_margin_max_y], 
+                          [0, bev_margin_max_y]])
 
 T_wc = np.array(
     [[-3.56859197e-02, -9.99357500e-01, -3.33192829e-03,  1.31136520e+01],

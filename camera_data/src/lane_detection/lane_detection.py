@@ -20,19 +20,16 @@ def BEV(img, bev_pts):
 class LaneDetection:
     def __init__(self, config, img, margins):
         self.img = img
-        self.margins = margins[:2].T
+        self.margins = np.float32(margins.T)
         self.config = config
         self.gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     def get_bev_img(self):
-        print(self.margins.shape)
-        print(self.config.bev_margins.shape)
-        print(type(self.margins))
-        print(type(self.config.bev_margins))
-        # self.img_to_bev = cv2.getPerspectiveTransform(self.margins, self.config.bev_margins)
-        # self.bev_to_img = cv2.getPerspectiveTransform(self.config.bev_margins, self.margins)
-        # print(self.margins.shape)
-        # print(self.config.bev_margins.shape)
+        self.img_to_bev = cv2.getPerspectiveTransform(self.margins, self.config.bev_margins)
+        self.bev_to_img = cv2.getPerspectiveTransform(self.config.bev_margins, self.margins)
+        bev = cv2.warpPerspective(self.gray_img, self.img_to_bev, (self.config.bev_margin_max_x, self.config.bev_margin_max_y))
+        cv2.imshow('bev', bev)
+        cv2.waitKey(10)
         # return cv2.warpPerspective(self.gray_img, self.img_to_bev, (self.config.bev_margin_max_x, self.config.bev_margin_max_y))
     
 
