@@ -3,7 +3,6 @@ import os
 import sys
 import time
 import copy
-import logging
 import numpy as np
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
@@ -19,6 +18,7 @@ from cv_bridge import CvBridge, CvBridgeError   # /opt/noetic/include
 # own
 from cfg import config
 from utils import world_to_img
+from lane_detection.lane_detection import LaneDetection
 
 # from b_spline_func import bspline
 # from kalman_filter_3rd import kalman_filter
@@ -40,7 +40,7 @@ class RefPublisher:
 
         self.camera_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_callback, "rgb")
         self.rgb_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
-        # self.depth_raw_sub = rospy.Subscriber("/camera/aligned_depth_to_color/image_raw", Image, self.depth_callback)
+        self.depth_sub = rospy.Subscriber("/camera/aligned_depth_to_color/image_raw", Image, self.depth_callback)
 
         # self.rgb_info = None
         # self.depth_info = None
@@ -61,23 +61,31 @@ class RefPublisher:
     def camera_callback(self, data, camera_type):
         if camera_type == "rgb" and not self.camera:
             self.camera = data
+            rospy.loginfo("Get camera image")
             config.intrinsic = np.array(self.camera.K).reshape(3, 3)
             self.camera_sub.unregister()  # unsubscribe after receiving the info
 
     
+    def depth_callback(self, data):
+        self.depth = data
+        rospy.loginfo("Get depth image")
+
     def image_callback(self, img):
         # load rgb and depth image
         bridge = CvBridge()
         try:
             rgb = bridge.imgmsg_to_cv2(img, "bgr8")
-            # depth = bridge.imgmsg_to_cv2(self.depth, "16UC1")
+            depth = bridge.imgmsg_to_cv2(self.depth, "16UC1")
         except CvBridgeError as e:
             print(e)
             return
         
-        world_to_img(rgb)
+        margins = world_to_img(rgb)
         
-        
+        lane_detection = LaneDetection(config, rgb, margins)
+        lane_detection.get_bev_img()
+
+        # cv2.imshow('bev', lane_detection.get_bev_img())
         
 
     # def depth_callback(self, msg):
