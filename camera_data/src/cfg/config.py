@@ -1,21 +1,22 @@
 import numpy as np
 
-section_list = [0, 199, 499]
+world_x_max = 250   # unit: cm
+world_x_min = 170   # unit: cm
+world_y_max = 70    # unit: cm
+world_y_min = -70   # unit: cm
+
 q = 0
+section_list = [0, 199, 499]                    
 initial_not_found = True
 
-# extrinsic = np.array([
-#     [ 0.0, 0.0, 1.0,  48.0],
-#     [-1.0, 0.0, 0.0, 0.0],
-#     [ 0.0, -1.0, 0.0,  39.0],
-#     [ 0.0,  0.0,  0.0,   1.0]])
+intrinsic = None
 
 extrinsic = np.array([
     [ 4.14811235e-02, -1.67221987e-02,  9.98999342e-01,  4.58149165e+01],
     [-9.99030049e-01, -1.54790444e-02,  4.12232956e-02,  4.56362457e+00],
     [ 1.47742110e-02, -9.99740350e-01 ,-1.73480671e-02,  4.19248218e+01],
     [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]
-])
+])  # TODO: Question
 
 
 T_wc = np.array(
@@ -25,16 +26,9 @@ T_wc = np.array(
     [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]
 )
 
-world_x_max = 250 # (cm)
-world_x_min = 170
-world_y_max = 70
-world_y_min = -70
-
 # world_x_max = 200 # (cm)
 # world_x_min = 100
 # world_y_max = 250
 # world_y_min = -250
-
-
 
 REF_POINT = np.array([100, 0, 0]).astype(np.float32)

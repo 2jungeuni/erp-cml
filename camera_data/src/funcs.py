@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import math
-import config as config
+import camera_data.cfg.config as config
 
 
 
