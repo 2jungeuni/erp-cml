@@ -51,7 +51,6 @@ class PosePublisher:
 
     def depth_callback(self, msg):
         self.depth_image = msg
-        print(type(self.depth_image))
         rospy.loginfo("Depth image has been updated.")
 
 
