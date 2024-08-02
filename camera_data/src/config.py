@@ -1,5 +1,7 @@
 import numpy as np
 
+a = 1
+
 section_list = [0, 199, 499]
 q = 0
 initial_not_found = True
