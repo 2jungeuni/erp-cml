@@ -9,13 +9,23 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 # install needed
 import cv2
 
-def BEV(img, bev_pts):
-    bev_pts1 = np.array(bev_pts).astype(np.float32)
-    bev_pts2 = np.float32([[0,0],[300,0],[300,500],[0,500]])
-    matrix = cv2.getPerspectiveTransform(bev_pts1, bev_pts2)
-    inv_matrix = cv2.getPerspectiveTransform(bev_pts2, bev_pts1)
-    bev = cv2.warpPerspective(img, matrix,(300,500))
-    return bev, inv_matrix
+def preprocessing_newnew(bev):
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 10))
+    k2 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 1))
+    gradient = cv2.morphologyEx(bev, cv2.MORPH_GRADIENT, k2)
+    # cv2.imshow("gradient", gradient)
+
+    max_percent = 9
+    hist = cv2.calcHist([gradient], [0], None, [256], [0, 256])
+    threshold = np.searchsorted(np.cumsum(hist), bev.size * (1 - 0.01 * max_percent))
+    ret, thres2 = cv2.threshold(gradient, threshold, 255, cv2.THRESH_BINARY)
+    reopening = cv2.morphologyEx(thres2, cv2.MORPH_OPEN, k)
+    reclosing = cv2.morphologyEx(reopening, cv2.MORPH_CLOSE, k)
+    dilate = cv2.dilate(reclosing, k2, iterations=2)
+    # cv2.imshow("thres3", dilate)
+    canny_dilate2 = cv2.Canny(dilate, 0, 255)
+    # cv2.imshow("canny_dilate2", canny_dilate2)
+    return canny_dilate2
 
 class LaneDetection:
     def __init__(self, config, img, margins):
@@ -24,15 +34,15 @@ class LaneDetection:
         self.config = config
         self.gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    def get_bev_img(self):
+        # transformaton matrix
         self.img_to_bev = cv2.getPerspectiveTransform(self.margins, self.config.bev_margins)
         self.bev_to_img = cv2.getPerspectiveTransform(self.config.bev_margins, self.margins)
-        bev = cv2.warpPerspective(self.gray_img, self.img_to_bev, (self.config.bev_margin_max_x, self.config.bev_margin_max_y))
-        cv2.imshow('bev', bev)
-        cv2.waitKey(10)
-        # return cv2.warpPerspective(self.gray_img, self.img_to_bev, (self.config.bev_margin_max_x, self.config.bev_margin_max_y))
-    
 
+    def get_bev_img(self):
+        return cv2.warpPerspective(self.gray_img, self.img_to_bev, (self.config.bev_margin_max_x, self.config.bev_margin_max_y))
+    
+    def get_lane_edges(self):
+        
 
 
 # def lane_det_main(self, raw_img, bev_pts):
