@@ -41,6 +41,7 @@ class PosePublisher:
         self.rgb_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback, "rgb")
         self.rgb_raw_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
         self.depth_raw_sub = rospy.Subscriber("/camera/aligned_depth_to_color/image_raw", Image, self.depth_callback)
+        # self.depth_raw_sub = rospy.Subscriber("/camera/depth/image_rect_raw", Image, self.depth_callback)
 
         
     def camera_info_callback(self, data, camera_type):
@@ -51,8 +52,8 @@ class PosePublisher:
 
     def depth_callback(self, msg):
         self.depth_image = msg
-        print(type(self.depth_image))
-        rospy.loginfo("Depth image has been updated.")
+        # print(type(self.depth_image))
+        # rospy.loginfo("Depth image has been updated.")
 
 
     def image_callback(self, rgb_image):
@@ -67,61 +68,127 @@ class PosePublisher:
         #--------------------------------
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
+        
+        bev, inv_matrix = BEV(cv_rgb, bev_pts)
+        cv2.imshow('bev', bev)
 
-        print("TEST")
-        for i, j in bev_pts:
-            print("i,j:",i,j)
-            depth_value = cv_depth[int(j),int(i)] * 0.01  # mm -> cm
+        for i, j in config.bev_pts:
+            img_pt = inv_matrix @ np.array([i,j,1.0])
+            img_pt = img_pt[:2] / img_pt[2]
+            cv2.circle(cv_rgb, (int(img_pt[0]), int(img_pt[1])), 3, (0,255,0), -1) 
+            i = int(img_pt[0])
+            j = int(img_pt[1])
+            
+            region = cv_depth[j-1:j+2, i-1:i+2]
+            depth_value = np.mean(region) * 0.1
+            # depth_value = cv_depth[j,i] * 0.1  # mm -> cm
+            print(depth_value)
+            f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
+            theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
+            Z_c = depth_value * np.cos(theta)
+            # print(Z_c)
             normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
-            cam_coords = depth_value * normalized_coord
+            cam_coords = Z_c * normalized_coord
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
-            world_target_point = world_coords[:3]
-            print(world_target_point)
+            world_coords = world_coords[:3] / world_coords[3]
 
-
-        if self.lane_det_main(cv_rgb, bev_pts) == None:
-            return
-        else:
-            final_Q_l, final_Q_r, bspline_est_left_pts, bspline_est_right_pts, inv_matrix = self.lane_det_main(cv_rgb, bev_pts)
-
-        #! bev img pts -> img -> world -> mid point
-        #! 1. bev pts -> img pts   (mid lane)
-        final_pt = (bspline_est_left_pts + bspline_est_right_pts)/2  # mid line
-        bevpts = np.array(final_pt, dtype=np.float32)
-        if len(bevpts.shape) == 2:
-            bevpts = bevpts[:, np.newaxis, :]  # Add the required dimension
-
-        img_pts = cv2.perspectiveTransform(bevpts, inv_matrix).astype(int)
-        img_pts = img_pts[:, 0, :].astype(int)
-        indices = np.linspace(0, len(img_pts) - 1, 10, dtype=int)
-        sampled_points = img_pts[indices]
-        # print(sampled_points)
-
-        refpose = ReferencePoses()
-        refpose.header.stamp = rospy.Time.now()
-        refpose.header.frame_id = "base_link"
-        world_coords_list = []
-        # cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
-        for idx, (i, j) in enumerate(sampled_points):
-            # print("i,j:",i,j)
-            depth_value = cv_depth[j,i] * 0.01  # mm -> cm
-            # print(rgb_intrinsic)
-            # print("depth", depth_value)
-            normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
-            cam_coords = depth_value * normalized_coord
-            # print(cam_coords)
-            world_coords = config.extrinsic @ np.append(cam_coords, 1)
-            world_target_point = world_coords[:3]
-            world_coords_list.append(world_target_point)
-            refpose.points[idx].x = world_target_point[0]
-            refpose.points[idx].y = world_target_point[1]
-            refpose.points[idx].z = world_target_point[2]
-            cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
+            print(world_coords)
+            
         print()
-        self.pos_pub.publish(refpose)
-        self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
-        cv2.imshow('Final?', self.final)
-        # cv2.waitKey(1)
+        
+        for i, j in config.bev_pts2:
+            img_pt = inv_matrix @ np.array([i,j,1.0])
+            img_pt = img_pt[:2] / img_pt[2]
+            cv2.circle(cv_rgb, (int(img_pt[0]), int(img_pt[1])), 3, (255,0,0), -1) 
+            i = int(img_pt[0])
+            j = int(img_pt[1])
+            print(i,j)
+            region = cv_depth[j-1:j+2, i-1:i+2]
+            depth_value = np.mean(region) * 0.1
+            print(depth_value)
+            f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
+            theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
+            Z_c = depth_value * np.cos(theta)
+            normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
+            cam_coords = Z_c * normalized_coord
+            world_coords = config.extrinsic @ np.append(cam_coords, 1)
+            world_coords = world_coords[:3] / world_coords[3]
+
+            print(world_coords)
+            
+        print()
+        
+        cv2.imshow("raw_img", cv_rgb)
+
+
+        # if self.lane_det_main(cv_rgb, bev_pts) == None:
+        #     return
+        # else:
+        #     final_Q_l, final_Q_r, bspline_est_left_pts, bspline_est_right_pts, inv_matrix = self.lane_det_main(cv_rgb, bev_pts)
+
+        # #! bev img pts -> img -> world -> mid point
+        # #! 1. bev pts -> img pts   (mid lane)
+        # final_pt = (bspline_est_left_pts + bspline_est_right_pts)/2  # mid line
+        # bevpts = np.array(final_pt, dtype=np.float32)
+        # if len(bevpts.shape) == 2:
+        #     bevpts = bevpts[:, np.newaxis, :]  # Add the required dimension
+
+        # img_pts = cv2.perspectiveTransform(bevpts, inv_matrix).astype(int)
+        # img_pts = img_pts[:, 0, :].astype(int)
+        # indices = np.linspace(0, len(img_pts) - 1, 10, dtype=int)
+        # sampled_points = img_pts[indices]
+        # # print(sampled_points)
+
+        # refpose = ReferencePoses()
+        # refpose.header.stamp = rospy.Time.now()
+        # refpose.header.frame_id = "base_link"
+        # world_coords_list = []
+        # # cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
+        # # for idx, (i, j) in enumerate(sampled_points):
+        # #     # print("i,j:",i,j)
+        # #     depth_value = cv_depth[j,i] * 0.01  # mm -> cm
+        # #     # print(rgb_intrinsic)
+        # #     # print("depth", depth_value)
+        # #     normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
+        # #     cam_coords = depth_value * normalized_coord
+        # #     # print(cam_coords)
+        # #     world_coords = config.extrinsic @ np.append(cam_coords, 1)
+        # #     world_target_point = world_coords[:3]
+        # #     world_coords_list.append(world_target_point)
+        # #     refpose.points[idx].x = world_target_point[0]
+        # #     refpose.points[idx].y = world_target_point[1]
+        # #     refpose.points[idx].z = world_target_point[2]
+        # #     cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
+
+        # i, j = sampled_points[0]
+        # idx = 0
+        # print("i,j:",i,j)
+        # region = cv_depth[j-1:j+2, i-1:i+2]
+        # depth_value = np.mean(region) * 0.1
+        # print(depth_value)
+        # # depth_value = cv_depth[j,i] * 0.1  # mm -> cm
+        # f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
+        # theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
+        # Z_c = depth_value * np.cos(theta)
+        # # print("Z_c", Z_c)
+
+        # normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
+        # cam_coords = Z_c * normalized_coord
+        # print("cam_coords",cam_coords)
+
+        # world_coords = config.extrinsic @ np.append(cam_coords, 1)
+        # world_target_point = world_coords[:3]
+        # print("world_target_point",world_target_point)
+        # world_coords_list.append(world_target_point)
+        # refpose.points[idx].x = world_target_point[0]
+        # refpose.points[idx].y = world_target_point[1]
+        # refpose.points[idx].z = world_target_point[2]
+        # cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
+        # # print()
+        # self.pos_pub.publish(refpose)
+        # self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
+        # cv2.imshow('Final?', self.final)
+        cv2.waitKey(10)
         
 
 

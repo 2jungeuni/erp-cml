@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import math
 import config as config
-
+# import camera_data.cfg.config as config
 
 
 # -------------------- main functions(main에서 바로 호출) -------------------------
@@ -31,10 +31,10 @@ def world_to_img_pts(img, intrinsic):
 
 def BEV(img, bev_pts):
     bev_pts1 = np.array(bev_pts).astype(np.float32)
-    bev_pts2 = np.float32([[0,0],[300,0],[300,500],[0,500]])
+    bev_pts2 = np.float32([[0,0],[config.bev_x,0],[config.bev_x,config.bev_y],[0,config.bev_y]])
     matrix = cv2.getPerspectiveTransform(bev_pts1, bev_pts2)
     inv_matrix = cv2.getPerspectiveTransform(bev_pts2, bev_pts1)
-    bev = cv2.warpPerspective(img, matrix,(300,500))
+    bev = cv2.warpPerspective(img, matrix,(config.bev_x,config.bev_y))
     return bev, inv_matrix
 
 
