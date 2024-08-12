@@ -85,7 +85,7 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
     # cv2.imshow("thres2", thres2)
 
     canny_dilate = cv2.Canny(thres2, 0, 255)
-    cv2.imshow("canny_dilate", canny_dilate)
+    # cv2.imshow("canny_dilate", canny_dilate)
 
     num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(canny_dilate)
     new_binary_img = np.zeros_like(canny_dilate)
@@ -271,7 +271,7 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
     real_all_lines.append([closest_l_line, closest_r_line])
     all_lines.append([closest_l_line, closest_r_line])
     
-    cv2.imshow("after filter_lines",temp)
+    # cv2.imshow("after filter_lines",temp)
     # cv2.imshow("after filter_lines2",temp2)
     
     
@@ -349,7 +349,7 @@ def validate_lane(temp2, temp, all_lines):
             all_lines[0][1] = []
             all_lines[1][1] = [] 
      
-    cv2.imshow("after validate_lane",temp)
+    # cv2.imshow("after validate_lane",temp)
      
      
 def copy_one_full_lane(temp2, temp, all_lines):
@@ -389,7 +389,7 @@ def copy_one_full_lane(temp2, temp, all_lines):
             cv2.line(temp, (all_lines[0][1][0], all_lines[0][1][1]), (all_lines[0][1][2], all_lines[0][1][3]), (0, 165, 255), 2)
             cv2.line(temp, (all_lines[1][1][0], all_lines[1][1][1]), (all_lines[1][1][2], all_lines[1][1][3]), (0, 165, 255), 2)
 
-        cv2.imshow("copy_one_full_lane", temp)
+        # cv2.imshow("copy_one_full_lane", temp)
         # cv2.waitKey(4000)
         
 
@@ -478,7 +478,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
 
         
     # cv2.imshow("Lanes before filtering", temp2)
-    cv2.imshow("Searching end", temp)
+    # cv2.imshow("Searching end", temp)
     
     return all_lines, temp, Q_l, Q_r
 

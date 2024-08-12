@@ -17,6 +17,7 @@ class MPCController:
         self.dt = 0.1               # time step
         self.odom_pose = None       # position x, y, z, orientation x, y, z, w
         self.odom_twist = None      # linear x, y, z, angular x, y, z
+        self.epsilon = 1e-6
 
     def odom_update(self, data):
         self.odom_pose = data.pose.pose
@@ -37,7 +38,6 @@ class MPCController:
         # initial state
         x0, y0, theta0 = self.odom_pose.position.x, self.odom_pose.position.y, self.get_yaw_from_quaternion(self.odom_pose.orientation)
         v0, omega0 = self.odom_twist.linear.x, self.odom_twist.angular.z
-        print("x0, y0, theta0: ", x0, y0, theta0)
         # define variables
         x = cp.Variable(self.horizon)
         y = cp.Variable(self.horizon)
@@ -64,28 +64,28 @@ class MPCController:
                 x[t + 1] == x[t] + self.dt * v[t] * cos_theta[t],
                 y[t + 1] == y[t] + self.dt * v[t] * sin_theta[t],
                 theta[t + 1] == theta[t] + self.dt * omega[t],
-                v[t] >= 0,
-                v[t] <= 0.5
+                v[t] >= -self.epsilon,
+                v[t] <= 10,
+                omega[t] >= -0.1,
+                omega[t] <= 0.1
             ]
 
         # solve the optimization problem
         prob = cp.Problem(cp.Minimize(cost), constraints)
         prob.solve()
 
-        # print("cost: ", prob.value)
-        # print("x value: ", x.value)
-        # print("x ref: ", self.waypoints)
-        # print("y vlaue: ", y.value)
-        # print("v value: ", v.value)
-        # print("omega value: ", omega.value)
 
         # get the control input and publish
         if prob.status == cp.OPTIMAL:
             control_cmd = Twist()
-            control_cmd.linear.x = v.value[0]
-            control_cmd.angular.z = omega.value[0]
-            print(v.value[0] ,omega.value[0])
+            control_cmd.linear.x = v.value[1]
+            control_cmd.angular.z = omega.value[1]
+            print("cost: ", prob.value)
+            print("vel, ang vel: ", v.value[1] ,omega.value[1])
             # self.pub.publish(control_cmd)
+            # print("waypoints\n", self.waypoints)
+            # print("x: ", x.value)
+            # print("y: ", y.value)
 
     def get_yaw_from_quaternion(self, q):
         """

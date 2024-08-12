@@ -184,25 +184,25 @@ class PosePublisher:
             refpose.points[idx].z = world_target_point[2]
             cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
 
-        i, j = sampled_points[0]
-        idx = 0
-        depth_value = cv_depth[j,i] * 0.1  # mm -> cm
-        f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
-        theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
-        Z_c = depth_value * np.cos(theta)
-        normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
-        cam_coords = Z_c * normalized_coord
+        # i, j = sampled_points[0]
+        # idx = 0
+        # depth_value = cv_depth[j,i] * 0.1  # mm -> cm
+        # f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
+        # theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
+        # Z_c = depth_value * np.cos(theta)
+        # normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
+        # cam_coords = Z_c * normalized_coord
 
-        world_coords = np.linalg.inv(config.extrinsic) @ np.append(cam_coords, 1)
-        world_target_point = world_coords[:3]
-        # print("world_target_point",world_target_point)
-        world_coords_list.append(world_target_point)
-        refpose.points[idx].x = world_target_point[0]
-        refpose.points[idx].y = world_target_point[1]
-        refpose.points[idx].z = world_target_point[2]
-        cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
+        # world_coords = np.linalg.inv(config.extrinsic) @ np.append(cam_coords, 1)
+        # world_target_point = world_coords[:3]
+        # # print("world_target_point",world_target_point)
+        # world_coords_list.append(world_target_point)
+        # refpose.points[idx].x = world_target_point[0]
+        # refpose.points[idx].y = world_target_point[1]
+        # refpose.points[idx].z = world_target_point[2]
+        # cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
         # print()
-        # self.pos_pub.publish(refpose)
+        self.pos_pub.publish(refpose)
         self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
         cv2.imshow('Final', self.final)
         
@@ -215,11 +215,10 @@ class PosePublisher:
         # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
-        cv2.imshow('bev', bev)
+        # cv2.imshow('bev', bev)
         canny_dilate = preprocessing_newnew(bev)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
-        cv2.imshow("aa", bev)
-        cv2.waitKey(1)
+        # cv2.imshow("aa", bev)
         if config.initial_not_found:
             # print("@@@@@@@@@ FINDING INITIAL LANE @@@@@@@@@")
             lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section_initial(canny_dilate, self.no_line_cnt)
@@ -280,7 +279,7 @@ class PosePublisher:
             cv2.circle(lines_in_section_img, (new_Q_l[i][0], new_Q_l[i][1]), 7, (255,255,255), 2)
             cv2.circle(lines_in_section_img, (new_Q_r[i][0], new_Q_r[i][1]), 7, (255,255,255), 2)
         
-        cv2.imshow("KF", lines_in_section_img)
+        # cv2.imshow("KF", lines_in_section_img)
         # cv2.imwrite("vis/"+str(config.q)+".png", lines_in_section_img)
 
         
@@ -298,7 +297,7 @@ class PosePublisher:
         self.prev_Q_r = copy.deepcopy(new_Q_r)
         self.prev_P = copy.deepcopy(self.P)
         
-        cv2.imshow("B-spline on BEV", bspline_img)
+        # cv2.imshow("B-spline on BEV", bspline_img)
         # cv2.imwrite("vis/"+str(config.q)+".jpg", bspline_img)
 
         if img is not None:
@@ -319,7 +318,7 @@ class PosePublisher:
             self.frame_count = 0
             self.start_time = time.time()
             # cv2.waitKey(1000)
-        cv2.waitKey(1)
+        # cv2.waitKey(1)
 
         config.q += 1 #* for drawing
         print("--------")

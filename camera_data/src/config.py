@@ -50,8 +50,8 @@ x_px_in_world = (world_x_max - world_x_min) / bev_x
 y_px_in_world = (world_y_max - world_y_min) / bev_y
 
 # Lane filtering
-lane_width_world = 75
-lane_thickness = 2*3
+lane_width_world = 70
+lane_thickness = 4*3
 lane_width_bev =  lane_width_world / ((world_y_max - world_y_min) / bev_x)
 max_angle_init = 100
 min_angle_init = 80
