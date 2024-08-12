@@ -1,3 +1,5 @@
+import pickle
+
 import rospy
 import numpy as np
 import cvxpy as cp
@@ -6,17 +8,23 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from camera_data.msg import ReferencePoses
 
+v = []
+omega = []
+
 class MPCController:
-    def __init__(self, horizon=10):
+    def __init__(self, hz=50, horizon=10):
         rospy.Subscriber("/odom", Odometry, self.odom_update)
         rospy.Subscriber('/ref_pos', ReferencePoses, self.waypoints_callback)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
         self.waypoints = []
         self.horizon = horizon
-        self.dt = 0.1               # time step
+        self.hz = hz
+        self.dt = 1/hz               # time step
         self.odom_pose = None       # position x, y, z, orientation x, y, z, w
         self.odom_twist = None      # linear x, y, z, angular x, y, z
+        self.min_vel = 0
+        self.max_vel = 1/hz
 
     def odom_update(self, data):
         self.odom_pose = data.pose.pose
@@ -37,7 +45,6 @@ class MPCController:
         # initial state
         x0, y0, theta0 = self.odom_pose.position.x, self.odom_pose.position.y, self.get_yaw_from_quaternion(self.odom_pose.orientation)
         v0, omega0 = self.odom_twist.linear.x, self.odom_twist.angular.z
-        print("x0, y0, theta0: ", x0, y0, theta0)
         # define variables
         x = cp.Variable(self.horizon)
         y = cp.Variable(self.horizon)
@@ -64,28 +71,22 @@ class MPCController:
                 x[t + 1] == x[t] + self.dt * v[t] * cos_theta[t],
                 y[t + 1] == y[t] + self.dt * v[t] * sin_theta[t],
                 theta[t + 1] == theta[t] + self.dt * omega[t],
-                v[t] >= 0,
-                v[t] <= 0.5
+                v[t] >= self.min_vel,
+                v[t] <= self.max_vel
             ]
 
         # solve the optimization problem
         prob = cp.Problem(cp.Minimize(cost), constraints)
         prob.solve()
 
-        # print("cost: ", prob.value)
-        # print("x value: ", x.value)
-        # print("x ref: ", self.waypoints)
-        # print("y vlaue: ", y.value)
-        # print("v value: ", v.value)
-        # print("omega value: ", omega.value)
-
         # get the control input and publish
         if prob.status == cp.OPTIMAL:
             control_cmd = Twist()
-            control_cmd.linear.x = v.value[0]
-            control_cmd.angular.z = omega.value[0]
-            print(v.value[0] ,omega.value[0])
-            # self.pub.publish(control_cmd)
+            control_cmd.linear.x = v.value[1]
+            control_cmd.angular.z = omega.value[1]
+            v.append(v.value[1])
+            omega.append(v.value[1])
+            self.pub.publish(control_cmd)
 
     def get_yaw_from_quaternion(self, q):
         """
@@ -96,8 +97,14 @@ class MPCController:
         return euler[2]
 
 if __name__ == "__main__":
+    hz = 50
     rospy.init_node("MPCController")
-    node = MPCController()
-    rate = rospy.Rate(50)   # 50 Hz
-    while not rospy.is_shutdown():
+    node = MPCController(hz)
+    rate = rospy.Rate(hz)   # 50 Hz
+    count = 0
+    #while not rospy.is_shutdown():
+    while count < 5:
         rate.sleep()
+        count += 1
+    with open("./result/ctl_input.pickle", "wb") as f:
+        pickle.dump({'vel': v, 'ang_vel': omega}, f)
