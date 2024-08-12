@@ -75,8 +75,8 @@ class PosePublisher:
         original_img = cv_rgb.copy()
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
-
-        bev, inv_matrix = BEV(original_img, bev_pts)
+        
+        # bev, inv_matrix = BEV(original_img, bev_pts)
 
         # #! Img -> World
         # for i, j in config.bev_pts:
@@ -215,10 +215,11 @@ class PosePublisher:
         # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
-        # cv2.imshow('bev', bev)
+        cv2.imshow('bev', bev)
         canny_dilate = preprocessing_newnew(bev)
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
-        # cv2.imshow("aa", bev)
+        cv2.waitKey(1)
+
         if config.initial_not_found:
             # print("@@@@@@@@@ FINDING INITIAL LANE @@@@@@@@@")
             lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section_initial(canny_dilate, self.no_line_cnt)
@@ -279,7 +280,7 @@ class PosePublisher:
             cv2.circle(lines_in_section_img, (new_Q_l[i][0], new_Q_l[i][1]), 7, (255,255,255), 2)
             cv2.circle(lines_in_section_img, (new_Q_r[i][0], new_Q_r[i][1]), 7, (255,255,255), 2)
         
-        # cv2.imshow("KF", lines_in_section_img)
+        cv2.imshow("KF", lines_in_section_img)
         # cv2.imwrite("vis/"+str(config.q)+".png", lines_in_section_img)
 
         
@@ -318,7 +319,7 @@ class PosePublisher:
             self.frame_count = 0
             self.start_time = time.time()
             # cv2.waitKey(1000)
-        # cv2.waitKey(1)
+        cv2.waitKey(1)
 
         config.q += 1 #* for drawing
         print("--------")

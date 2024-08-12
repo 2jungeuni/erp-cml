@@ -8,27 +8,19 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from camera_data.msg import ReferencePoses
 
-v = []
-omega = []
-
 class MPCController:
     def __init__(self, hz=50, horizon=10):
         rospy.Subscriber("/odom", Odometry, self.odom_update)
         rospy.Subscriber('/ref_pos', ReferencePoses, self.waypoints_callback)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-
         self.waypoints = []
         self.horizon = horizon
         self.hz = hz
         self.dt = 1/hz               # time step
         self.odom_pose = None       # position x, y, z, orientation x, y, z, w
         self.odom_twist = None      # linear x, y, z, angular x, y, z
-<<<<<<< HEAD
-        self.epsilon = 1e-6
-=======
         self.min_vel = 0
-        self.max_vel = 1/hz
->>>>>>> origin/scout_mini
+        self.max_vel = 0.1
 
     def odom_update(self, data):
         self.odom_pose = data.pose.pose
@@ -63,7 +55,7 @@ class MPCController:
         # define the cost function
         cost = 0
         for t in range(self.horizon):
-            cost += cp.square(x[t] - self.waypoints[t][0]) + cp.square(y[t] - self.waypoints[t][1])
+            cost += 10 * cp.square(x[t] - self.waypoints[t][0]) + 10 * cp.square(y[t] - self.waypoints[t][1])
         for t in range(1, self.horizon - 1):
             cost +=  cp.square(v[t] - v[t-1]) + cp.square(omega[t] - omega[t-1]) # control effort
 
@@ -75,42 +67,24 @@ class MPCController:
                 x[t + 1] == x[t] + self.dt * v[t] * cos_theta[t],
                 y[t + 1] == y[t] + self.dt * v[t] * sin_theta[t],
                 theta[t + 1] == theta[t] + self.dt * omega[t],
-<<<<<<< HEAD
-                v[t] >= -self.epsilon,
-                v[t] <= 10,
-                omega[t] >= -0.1,
-                omega[t] <= 0.1
-=======
                 v[t] >= self.min_vel,
                 v[t] <= self.max_vel
->>>>>>> origin/scout_mini
             ]
 
         # solve the optimization problem
         prob = cp.Problem(cp.Minimize(cost), constraints)
         prob.solve()
+        print(prob.status)
 
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/scout_mini
         # get the control input and publish
         if prob.status == cp.OPTIMAL:
             control_cmd = Twist()
             control_cmd.linear.x = v.value[1]
             control_cmd.angular.z = omega.value[1]
-<<<<<<< HEAD
-            print("cost: ", prob.value)
-            print("vel, ang vel: ", v.value[1] ,omega.value[1])
-            # self.pub.publish(control_cmd)
-            # print("waypoints\n", self.waypoints)
-            # print("x: ", x.value)
-            # print("y: ", y.value)
-=======
-            v.append(v.value[1])
-            omega.append(v.value[1])
+            print("vel, ang_vel: ", v.value[1], omega.value[1])
+            print("x, xref: ", x.value[1], self.waypoints[1][0])
+            print("y, yref: ", y.value[1], self.waypoints[1][1])
             self.pub.publish(control_cmd)
->>>>>>> origin/scout_mini
 
     def get_yaw_from_quaternion(self, q):
         """
@@ -125,10 +99,23 @@ if __name__ == "__main__":
     rospy.init_node("MPCController")
     node = MPCController(hz)
     rate = rospy.Rate(hz)   # 50 Hz
-    count = 0
-    #while not rospy.is_shutdown():
-    while count < 5:
+    # Initialize a counter
+    # count = 0
+
+    # Set the desired number of times to publish
+    # max_count = 5
+
+    # while not rospy.is_shutdown() and count < max_count:
+        # Your publishing logic here
+        # e.g., node.publish()
+
+        # Increment the counter
+        # count += 1
+
+        # Sleep for the next iteration
+        # rate.sleep()
+        # with open("./result/ctl_input.pickle", "wb") as f:
+        #     pickle.dump({'vel': v, 'ang_vel': omega}, f)
+
+    while not rospy.is_shutdown():
         rate.sleep()
-        count += 1
-    with open("./result/ctl_input.pickle", "wb") as f:
-        pickle.dump({'vel': v, 'ang_vel': omega}, f)

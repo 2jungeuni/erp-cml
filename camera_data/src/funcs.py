@@ -39,7 +39,7 @@ def BEV(img, bev_pts):
     
 
 def preprocessing_newnew(bev):
-    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 5))
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     k2 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 1))
     gradient = cv2.morphologyEx(bev, cv2.MORPH_GRADIENT, k2)
     # cv2.imshow("gradient", gradient)
@@ -349,7 +349,7 @@ def validate_lane(temp2, temp, all_lines):
             all_lines[0][1] = []
             all_lines[1][1] = [] 
      
-    # cv2.imshow("after validate_lane",temp)
+    cv2.imshow("after validate_lane",temp)
      
      
 def copy_one_full_lane(temp2, temp, all_lines):
