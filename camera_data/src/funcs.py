@@ -109,7 +109,7 @@ def filter_lines_initial(lines, current_section, temp2, temp, all_lines, real_al
     """ called from each section """
     left_lines = []
     right_lines = []
-    print("filter")
+    # print("filter")
     if lines is not None:
         for line in lines:
             extended_line = extend_lines_fit_section(line[0], current_section)       
@@ -254,9 +254,9 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
                     angle_l = angle(closest_l_line[0], closest_l_line[1], closest_l_line[2], closest_l_line[3])
                     angle_r = angle(closest_r_line[0], closest_r_line[1], closest_r_line[2], closest_r_line[3])
                     if not (config.lane_width_bev * 0.8 <= distance_bw_cur_lanes <= config.lane_width_bev * 1.2 and abs(angle_l - angle_r) < 10):
-                        print(f"S({current_section}) Lanes are found, but deleted because of either non-parallelism and width")
-                        print(f"\t{distance_bw_cur_lanes}, {angle_l}, {angle_r}")
-                        print(f"\tdist_diff: {config.lane_width_bev * 0.8 <= distance_bw_cur_lanes <= config.lane_width_bev * 1.2}, ang_diff: {abs(angle_l - angle_r) < 10}")
+                        # print(f"S({current_section}) Lanes are found, but deleted because of either non-parallelism and width")
+                        # print(f"\t{distance_bw_cur_lanes}, {angle_l}, {angle_r}")
+                        # print(f"\tdist_diff: {config.lane_width_bev * 0.8 <= distance_bw_cur_lanes <= config.lane_width_bev * 1.2}, ang_diff: {abs(angle_l - angle_r) < 10}")
                         closest_l_line = []
                         closest_r_line = []
                 #****** 2024.08.08       
@@ -328,9 +328,9 @@ def validate_lane(temp2, temp, all_lines):
         lower_line_ang = angle(all_lines[1][0][0], all_lines[1][0][1], all_lines[1][0][2], all_lines[1][0][3])
         if abs(upper_line_ang - lower_line_ang) < config.min_angle_diff and abs(all_lines[0][0][2] - all_lines[1][0][0]) > config.validate_lane_endpt_diff:
             # if section lines are tend to be parallel but located far from each other, remove
-            print("(L) Far from each other --> Deleted")
-            print(f"\t{abs(upper_line_ang - lower_line_ang)} < {config.min_angle_diff}, {abs(all_lines[0][0][2] - all_lines[1][0][0])} > config.validate_lane_endpt_diff")
-            print(f"\t{abs(upper_line_ang - lower_line_ang) < config.min_angle_diff}, {abs(all_lines[0][0][2] - all_lines[1][0][0]) > config.validate_lane_endpt_diff}")
+            # print("(L) Far from each other --> Deleted")
+            # print(f"\t{abs(upper_line_ang - lower_line_ang)} < {config.min_angle_diff}, {abs(all_lines[0][0][2] - all_lines[1][0][0])} > config.validate_lane_endpt_diff")
+            # print(f"\t{abs(upper_line_ang - lower_line_ang) < config.min_angle_diff}, {abs(all_lines[0][0][2] - all_lines[1][0][0]) > config.validate_lane_endpt_diff}")
             cv2.line(temp, (all_lines[0][0][0], all_lines[0][0][1]), (all_lines[0][0][2], all_lines[0][0][3]), (0, 255, 0), 2)
             cv2.line(temp, (all_lines[1][0][0], all_lines[1][0][1]), (all_lines[1][0][2], all_lines[1][0][3]), (0, 255, 0), 2)
             all_lines[0][0] = []
@@ -341,15 +341,15 @@ def validate_lane(temp2, temp, all_lines):
         lower_line_ang = angle(all_lines[1][1][0], all_lines[1][1][1], all_lines[1][1][2], all_lines[1][1][3])
         if abs(upper_line_ang - lower_line_ang) < config.min_angle_diff and abs(all_lines[0][1][2] - all_lines[1][1][0]) > config.validate_lane_endpt_diff:
             # if section lines are tend to be parallel but located far from each other, remove
-            print("(R) Far from each other --> Deleted")
-            print(f"\t{abs(upper_line_ang - lower_line_ang)} < {config.min_angle_diff}, {abs(all_lines[0][1][2] - all_lines[1][1][0])} > config.validate_lane_endpt_diff")
-            print(f"\t{abs(upper_line_ang - lower_line_ang) < config.min_angle_diff}, {abs(all_lines[0][1][2] - all_lines[1][1][0]) > config.validate_lane_endpt_diff}")
+            # print("(R) Far from each other --> Deleted")
+            # print(f"\t{abs(upper_line_ang - lower_line_ang)} < {config.min_angle_diff}, {abs(all_lines[0][1][2] - all_lines[1][1][0])} > config.validate_lane_endpt_diff")
+            # print(f"\t{abs(upper_line_ang - lower_line_ang) < config.min_angle_diff}, {abs(all_lines[0][1][2] - all_lines[1][1][0]) > config.validate_lane_endpt_diff}")
             cv2.line(temp, (all_lines[0][1][0], all_lines[0][1][1]), (all_lines[0][1][2], all_lines[0][1][3]), (0, 255, 0), 2)
             cv2.line(temp, (all_lines[1][1][0], all_lines[1][1][1]), (all_lines[1][1][2], all_lines[1][1][3]), (0, 255, 0), 2)
             all_lines[0][1] = []
             all_lines[1][1] = [] 
      
-    cv2.imshow("after validate_lane",temp)
+    # cv2.imshow("after validate_lane",temp)
      
      
 def copy_one_full_lane(temp2, temp, all_lines):
@@ -486,7 +486,7 @@ def extract_lines_in_section(roi, prev_Q_l, prev_Q_r, no_line_cnt):
 
 def R_set_considering_control_points(Q_l, Q_r, prev_esti, no_line_cnt):
     weight = [10, 10, 200, 10, 10, 200]
-    print("prev esti\n", prev_esti)
+    # print("prev esti\n", prev_esti)
     
     if prev_esti is not None:
         R_ = np.zeros((6, 1))

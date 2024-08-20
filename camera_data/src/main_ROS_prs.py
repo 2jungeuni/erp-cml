@@ -72,75 +72,8 @@ class PosePublisher:
             print(e)
             return
         #--------------------------------
-        original_img = cv_rgb.copy()
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
-        
-        # bev, inv_matrix = BEV(original_img, bev_pts)
-
-        # #! Img -> World
-        # for i, j in config.bev_pts:
-        #     img_pt = inv_matrix @ np.array([i,j,1.0])
-        #     img_pt = img_pt[:2] / img_pt[2]
-        #     cv2.circle(cv_rgb, (int(img_pt[0]), int(img_pt[1])), 3, (0,255,0), -1) 
-        #     i = int(img_pt[0])
-        #     j = int(img_pt[1])
-            
-        #     depth_value = cv_depth[j,i] * 0.1  # mm -> cm
-        #     print(depth_value)
-        #     f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
-        #     theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
-        #     Z_c = depth_value * np.cos(theta)
-        #     # print(Z_c)
-        #     normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
-        #     cam_coords = Z_c * normalized_coord
-        #     world_coords = config.extrinsic @ np.append(cam_coords, 1)
-        #     world_coords = world_coords[:3] / world_coords[3]
-
-        #     print(world_coords)
-            
-        # print()
-        
-        # for i, j in config.bev_pts2:
-        #     img_pt = inv_matrix @ np.array([i,j,1.0])
-        #     img_pt = img_pt[:2] / img_pt[2]
-        #     cv2.circle(cv_rgb, (int(img_pt[0]), int(img_pt[1])), 3, (255,0,0), -1) 
-        #     i = int(img_pt[0])
-        #     j = int(img_pt[1])
-            
-        #     depth_value = cv_depth[j,i] * 0.1  # mm -> cm
-        #     print(depth_value)
-        #     f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
-        #     theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
-        #     Z_c = depth_value * np.cos(theta)
-        #     normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
-        #     cam_coords = Z_c * normalized_coord
-        #     world_coords = config.extrinsic @ np.append(cam_coords, 1)
-        #     world_coords = world_coords[:3] / world_coords[3]
-
-        #     print(world_coords)
-            
-        # print()
-        
-        # cv2.imshow("raw_img", cv_rgb)
-        
-        
-        # # #! BEV -> World
-        # for i, (x,y) in enumerate(config.bev_pts):
-        #     cv2.circle(bev, (x, y), 3, (0,255,0), -1) 
-        #     world_pt_x = config.world_x_max - ((config.world_x_max - config.world_x_min) / config.bev_y) * y
-        #     world_pt_y = config.world_y_max - ((config.world_y_max - config.world_y_min) / config.bev_x) * x
-        #     print(world_pt_x, world_pt_y)
-        # print()
-        
-        # for i, (x,y) in enumerate(config.bev_pts2):
-        #     cv2.circle(bev, (x, y), 3, (255,0,0), -1) 
-        #     world_pt_x = config.world_x_max - ((config.world_x_max - config.world_x_min) / config.bev_y) * y
-        #     world_pt_y = config.world_y_max - ((config.world_y_max - config.world_y_min) / config.bev_x) * x
-        #     print(world_pt_x, world_pt_y)
-        # print()
-        
-        # cv2.imshow('bev_check', bev)
         
         
         if self.lane_det_main(cv_rgb, bev_pts) == None:
@@ -158,7 +91,7 @@ class PosePublisher:
         img_pts = cv2.perspectiveTransform(bevpts, inv_matrix).astype(int)
         img_pts = img_pts[:, 0, :].astype(int)
         indices = np.linspace(0, len(img_pts) - 1, 10, dtype=int)
-        sampled_points = img_pts[indices]
+        sampled_points = img_pts[-10:]
         # print(sampled_points)
 
         refpose = ReferencePoses()
@@ -170,38 +103,24 @@ class PosePublisher:
         cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
         for idx, (i, j) in enumerate(sampled_points):
             # print("i,j:",i,j)
-            depth_value = cv_depth[j,i] * 0.01  # mm -> cm
-            # print(rgb_intrinsic)
-            # print("depth", depth_value)
+            region = cv_depth[j-1:j+2, i-1:i+2]
+            depth_value = np.mean(region) * 0.1
+
+            print("depth", depth_value)
+            f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
+            theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
+            Z_c = depth_value * np.cos(theta)
             normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
-            cam_coords = depth_value * normalized_coord
-            # print(cam_coords)
+            cam_coords = Z_c * normalized_coord
+
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
             world_target_point = world_coords[:3]
             world_coords_list.append(world_target_point)
-            refpose.points[idx].x = world_target_point[0]
-            refpose.points[idx].y = world_target_point[1]
-            refpose.points[idx].z = world_target_point[2]
+            refpose.points[9-idx].x = world_target_point[0]
+            refpose.points[9-idx].y = world_target_point[1]
+            refpose.points[9-idx].z = world_target_point[2]
             cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
 
-        # i, j = sampled_points[0]
-        # idx = 0
-        # depth_value = cv_depth[j,i] * 0.1  # mm -> cm
-        # f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
-        # theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
-        # Z_c = depth_value * np.cos(theta)
-        # normalized_coord = np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1])
-        # cam_coords = Z_c * normalized_coord
-
-        # world_coords = np.linalg.inv(config.extrinsic) @ np.append(cam_coords, 1)
-        # world_target_point = world_coords[:3]
-        # # print("world_target_point",world_target_point)
-        # world_coords_list.append(world_target_point)
-        # refpose.points[idx].x = world_target_point[0]
-        # refpose.points[idx].y = world_target_point[1]
-        # refpose.points[idx].z = world_target_point[2]
-        # cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
-        # print()
         self.pos_pub.publish(refpose)
         self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
         cv2.imshow('Final', self.final)
@@ -322,7 +241,7 @@ class PosePublisher:
         cv2.waitKey(1)
 
         config.q += 1 #* for drawing
-        print("--------")
+        # print("--------")
 
         return new_Q_l, new_Q_r, bspline_est_left_pts, bspline_est_right_pts, inv_matrix   
 
