@@ -1,10 +1,9 @@
 import sys
 import rospy
-import math
 import numpy as np
 import gurobipy as gp
 from gurobipy import *
-from geometry_msgs.msg import Twist, Point
+from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from camera_data.msg import ReferencePoses
 from visualization_msgs.msg import Marker
@@ -28,6 +27,7 @@ status_dict = {1: "loaded",
                16: "work limit",
                17: "memory limit"}
 
+
 class MPCController:
     def __init__(self, hz=50, horizon=10):
         rospy.Subscriber("/odom", Odometry, self.odom_update)
@@ -44,8 +44,7 @@ class MPCController:
         self.y0 = 0.0
         self.theta0 = 0.0
         self.transformed_points = None
-        self.initialized = False    # Indicates if the initial trajectory is set
-        self.marker_id = 0          # Unique ID for each marker
+        self.marker_id = 0
 
     def odom_update(self, data):
         self.odom_pose = data.pose.pose
@@ -53,17 +52,12 @@ class MPCController:
 
 
     def waypoints_callback(self, data):
-        self.x0, self.y0, self.theta0 = self.odom_pose.position.x, self.odom_pose.position.y, self.get_yaw_from_quaternion(self.odom_pose.orientation)  # world
+        self.x0, self.y0, self.theta0 = self.odom_pose.position.x, self.odom_pose.position.y, \
+                                        self.get_yaw_from_quaternion(self.odom_pose.orientation)  # world
         # print("current position:",self.x0, self.y0, self.theta0)
 
-        # self.waypoints = [(point.x, point.y) for point in data.points]
-        # self.transformed_points = self.transform_points(self.waypoints, self.x0, self.y0, self.theta0)
-
-        self.transformed_points = []
-        for h in range(self.horizon):
-            self.transformed_points.append((self.x0 + self.dt * (h+1), self.y0 -self.dt * (h+1)))
-        print(self.transformed_points)
-        self.waypoints = self.transformed_points
+        self.waypoints = [(point.x, point.y) for point in data.points]
+        self.transformed_points = self.transform_points(self.waypoints, self.x0, self.y0, self.theta0)
         
         self.publish_transformed_points()
         self.run_mpc()
@@ -77,9 +71,7 @@ class MPCController:
         for point in points:
             x_prime = cos_theta * point[0] + sin_theta * point[1]
             y_prime = -sin_theta * point[0] + cos_theta * point[1]
-            
             transformed_points.append((x0 + x_prime, y0 + y_prime))
-            print(x0 + x_prime, y0 + y_prime)
             
         return transformed_points
 
@@ -92,50 +84,46 @@ class MPCController:
         m = gp.Model()
         m.Params.outputFlag = False
         
-        # x variables
-        x_vars = m.addVars(np.arange(self.horizon), lb=-200.0, ub=200.0, vtype=GRB.CONTINUOUS, name="x")
-        # y variables
-        y_vars = m.addVars(np.arange(self.horizon), lb=-200.0, ub=200.0, vtype=GRB.CONTINUOUS, name="y")
+        # x, y variables
+        x_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY, vtype=GRB.CONTINUOUS, name="x")
+        y_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY, vtype=GRB.CONTINUOUS, name="y")
         # v variables
-        vx_vars = m.addVars(np.arange(self.horizon-1), lb=-5.0, ub=5.0, vtype=GRB.CONTINUOUS, name="v_x")
-        vy_vars = m.addVars(np.arange(self.horizon-1), lb=-5.0, ub=5.0, vtype=GRB.CONTINUOUS, name="v_y")
+        vx_vars = m.addVars(np.arange(self.horizon-1), lb=-1.0, ub=1.0, vtype=GRB.CONTINUOUS, name="v_x")
+        vy_vars = m.addVars(np.arange(self.horizon-1), lb=-1.0, ub=1.0, vtype=GRB.CONTINUOUS, name="v_y")
         # omega variables
-        # omgx_vars = m.addVars(np.arange(self.horizon), lb=-5.0, ub=5.0, vtype=GRB.CONTINUOUS, name="omg_x")
-        # omgy_vars = m.addVars(np.arange(self.horizon), lb=-5.0, ub=5.0, vtype=GRB.CONTINUOUS, name="omg_y")
+        omgx_vars = m.addVars(np.arange(self.horizon), lb=-1.0, ub=1.0, vtype=GRB.CONTINUOUS, name="omg_x")
+        omgy_vars = m.addVars(np.arange(self.horizon), lb=-1.0, ub=1.0, vtype=GRB.CONTINUOUS, name="omg_y")
 
         # define the constraints
         # Constraint 1: set initial points
-        cons1_1 = m.addConstr(x_vars[0] == self.x0)
-        cons1_2 = m.addConstr(y_vars[0] == self.y0)
-        # cons1_3 = m.addConstr(x_vars[1] >= 1e-6)
-        # cons1_4 = m.addConstr(x_vars[1] <= -0.01)
-        # cons1_1 = m.addConstr(x_vars[0] == 0.0)
-        # cons1_2 = m.addConstr(y_vars[0] == 0.0)
-        
+        cons1_1 = m.addConstr(x_vars[0] == 0.0)
+        cons1_2 = m.addConstr(y_vars[0] == 0.0)         # for local planning
+        # cons1_1 = m.addConstr(x_vars[0] == self.x0)
+        # cons1_2 = m.addConstr(y_vars[0] == self.y0)   # for global planning
+
+
         # Constraint 2: dynamics
         cons2_1 = m.addConstrs(x_vars[h+1] == x_vars[h] + self.dt * vx_vars[h] for h in range(self.horizon - 1))
         cons2_2 = m.addConstrs(y_vars[h+1] == y_vars[h] + self.dt * vy_vars[h] for h in range(self.horizon - 1))
-        # cons2_3 = m.addConstrs(vx_vars[h+1] == vx_vars[h] + self.dt * omgx_vars[h] for h in range(self.horizon - 1))
-        # cons2_4 = m.addConstrs(vy_vars[h+1] == vy_vars[h] + self.dt * omgy_vars[h] for h in range(self.horizon - 1))
+        cons2_3 = m.addConstrs(vx_vars[h+1] == vx_vars[h] + self.dt * omgx_vars[h] for h in range(self.horizon - 2))
+        cons2_4 = m.addConstrs(vy_vars[h+1] == vy_vars[h] + self.dt * omgy_vars[h] for h in range(self.horizon - 2))
         
         # set objective function
+        m.setObjective(gp.quicksum((self.waypoints[h][0] - x_vars[h])**2 for h in range(self.horizon)) 
+                       + gp.quicksum((self.waypoints[h][1] - y_vars[h])**2 for h in range(self.horizon))
+                       + gp.quicksum((vx_vars[h+1]- vx_vars[h])**2 for h in range(self.horizon-2)) 
+                       + gp.quicksum((vy_vars[h+1]- vy_vars[h])**2 for h in range(self.horizon-2)) 
+                       + gp.quicksum((omgx_vars[h+1]- omgx_vars[h])**2 for h in range(self.horizon-2)) 
+                       + gp.quicksum((omgy_vars[h+1]- omgy_vars[h])**2 for h in range(self.horizon-2)) , GRB.MINIMIZE)
         # m.setObjective(gp.quicksum((self.waypoints[h][0] - x_vars[h])**2 for h in range(self.horizon)) 
-        #                + gp.quicksum((self.waypoints[h][1] - y_vars[h])**2 for h in range(self.horizon)) 
-        #                + gp.quicksum((vx_vars[h+1]- vx_vars[h])**2 for h in range(self.horizon-1)) 
-        #                + gp.quicksum((vy_vars[h+1]- vy_vars[h])**2 for h in range(self.horizon-1)) 
-        #                + gp.quicksum((omgx_vars[h+1]- omgx_vars[h])**2 for h in range(self.horizon-1)) 
-        #                + gp.quicksum((omgy_vars[h+1]- omgy_vars[h])**2 for h in range(self.horizon-1)), GRB.MINIMIZE)
-        m.setObjective(gp.quicksum((self.transformed_points[h][0] - x_vars[h])**2 for h in range(self.horizon)) 
-                       + gp.quicksum((self.transformed_points[h][1] - y_vars[h])**2 for h in range(self.horizon)), GRB.MINIMIZE)
-        # m.setObjective(gp.quicksum((self.waypoints[h][0] - x_vars[h])**2 for h in range(self.horizon)), GRB.MINIMIZE)
-        # m.setObjective(gp.quicksum((self.waypoints[h][1] - y_vars[h])**2 for h in range(self.horizon)), GRB.MINIMIZE)
+        #                + gp.quicksum((self.waypoints[h][1] - y_vars[h])**2 for h in range(self.horizon)), GRB.MINIMIZE)
 
         m._xvars = x_vars
         m._yvars = y_vars
         m._vxvars = vx_vars
         m._vyvars = vy_vars
-        # m._omgxvars = omgx_vars
-        # m._omgyvars = omgy_vars
+        m._omgxvars = omgx_vars
+        m._omgyvars = omgy_vars
         m.optimize()
 
         # status
@@ -148,30 +136,27 @@ class MPCController:
             y_vals = m.getAttr('x', y_vars)
             vx_vals = m.getAttr('x', vx_vars)
             vy_vals = m.getAttr('x', vy_vars)
-            # omgx_vals = m.getAttr('x', omgx_vars)
-            # omgy_vals = m.getAttr('x', omgy_vars)
+            omgx_vals = m.getAttr('x', omgx_vars)
+            omgy_vals = m.getAttr('x', omgy_vars)
             
-            theta = 0.0 if np.round(vx_vals[0], 2) == 0 else np.tanh(np.round(vy_vals[0], 2) / np.round(vx_vals[0], 2))
+            theta = 0.0 if np.round(vx_vals[0], 5) == 0 else np.tanh(np.round(vy_vals[0], 5) / np.round(vx_vals[0], 5))
 
             # print("Waypoints:  ", self.transformed_points)
-            print("x[1]: ", x_vals[1])
-            print("v = ", np.sqrt(vx_vals[0]**2 + vy_vals[0]**2))
-            print("theta = ",theta)
+            print("speed = ", np.sqrt(vx_vals[0]**2 + vy_vals[0]**2))
+            print("theta = ", theta)
             print("vx")
             print(vx_vals)
             print("vy")
             print(vy_vals)
-            # print("omgx")
-            # print(omgx_vals)
-            # print("omgy")
-            # print(omgy_vals)
+            print("omgx")
+            print(omgx_vals)
+            print("omgy")
+            print(omgy_vals)
 
             control_cmd = Twist()
-            control_cmd.linear.x = np.round(vx_vals[0], 2)
+            control_cmd.linear.x = np.round(vx_vals[0], 5)
             control_cmd.angular.z = theta
             self.pub.publish(control_cmd)
-            
-            # Publish the transformed points to RViz
         else:
             sys.exit()
 

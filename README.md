@@ -27,7 +27,7 @@ https://github.com/agilexrobotics/scout_ros 을 참고해서 패키지 설치 �
 odometry publsih & 좌표 설정
 1. scout_bringup/launch/scout_mini_robot_base.launch에서 `pub_tf:= true`로 설정
 2. scout_base/src/scout_messenger.cpp에서 288, 301, 337, 350번 line을 `z = 0.183498` 로 수정
-3. RViz에서 odom을 기준으로 좌표 보이기
+3. RViz에서 odom을 기준으로 좌표 보기
 
 
 ---
@@ -38,12 +38,10 @@ odometry publsih & 좌표 설정
 - 또는 `rosrun camera_data turn_on_camera.py`
 
 카메라 이미지 처리
-- `rosrun camera_data image_analysis2.py`  -> 7층 주행
-- `rosrun camera_data main_ROS.py` -> 차선인식
-- `rosrun camera_data main_ROS_prs.py` -> ApproximateTimeSynchronizer 사용 안한 버전(depth가 늦게 들어와도 연산 가능)
+- `rosrun camera_data main_ROS_prs.py`
 
-reference point를 기반으로 차량 제어
-- `rosrun testdrive final_testdrive.py`
+reference point를 기반으로 MPC 제어(solver: gurobi)
+- `rosrun testdrive drive_gurobi.py`
 
 Scout-Mini bringup하기 (CAN 통신?)
 - `sudo ip link set can0 up type can bitrate 500000`
