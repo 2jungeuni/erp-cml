@@ -4,6 +4,7 @@ import rospy
 import numpy as np
 import gurobipy as gp
 from gurobipy import *
+from std_msgs.msg import Int8
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from camera_data.msg import ReferencePoses
@@ -34,9 +35,10 @@ class MPCController:
     def __init__(self, hz=50, horizon=10):
         rospy.Subscriber("/odom", Odometry, self.odom_update)
         rospy.Subscriber('/ref_pos', ReferencePoses, self.waypoints_callback)
+        rospy.Subscriber('/command', Int8, self.command_callback)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.marker_pub = rospy.Publisher('/transformed_points_marker', Marker, queue_size=10)  # Marker publisher
-        self.local_points = []
+        self.local_points = None
         self.global_points = None
         self.horizon = horizon
         self.hz = hz
@@ -49,6 +51,7 @@ class MPCController:
         self.marker_id = 0        
         self.angles = np.linspace(0, np.pi, 100)
         self.our_points = [(0.01*i, 0.01*i) for i in range(500)] + [(5 - 0.01*i, 5 + 0.01*i) for i in range(500)]
+        self.start = False
 
     def odom_update(self, data):
         self.odom_pose = data.pose.pose
@@ -61,6 +64,7 @@ class MPCController:
         # print("current position:",self.x0, self.y0, self.theta0)
 
         # self.global_points = [(point.x, point.y) for point in data.points]
+        self.local_points = [(point.x, point.y) for point in data.points]
         # self.local_points = self.local_points(self.global_points, self.x0, self.y0, self.theta0)
 
 
@@ -70,12 +74,24 @@ class MPCController:
         #     self.local_points = [(0.1 * h, 0) for h in range(self.horizon)]
         # self.local_points = [(point.x, point.y) for point in data.points]
         # self.global_points = self.transform_points(self.local_points, self.x0, self.y0, self.theta0)
-        self.global_points = self.our_points[self.marker_id: self.marker_id + self.horizon]
-        self.local_points = self.global2local(self.global_points, self.x0, self.y0, self.theta0)
-
+        # self.global_points = self.our_points[self.marker_id: self.marker_id + self.horizon]
+        # self.local_points = self.global2local(self.global_points, self.x0, self.y0, self.theta0)
+        # print(self.global_points)
+        self.global_points = self.local2global(self.local_points, self.x0, self.y0, self.theta0)
         self.publish_global_points()
-        self.run_mpc()
+        if self.start:
+            print("running")
+            self.run_mpc()
+        else:
+            return
 
+    def command_callback(self, data):
+        if data.data == 1:
+            self.start = True
+        elif data.data == 0:
+            self.start = False
+        print(self.start)
+            
 
     def run_mpc(self):
         # if len(self.local_points) < self.horizon:
@@ -89,7 +105,7 @@ class MPCController:
         x_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY, vtype=GRB.CONTINUOUS, name="x")
         y_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY, vtype=GRB.CONTINUOUS, name="y")
         # v variables
-        vx_vars = m.addVars(np.arange(self.horizon-1), lb=0.0, ub=5.0,  vtype=GRB.CONTINUOUS, name="v_x")
+        vx_vars = m.addVars(np.arange(self.horizon-1), lb=0.0, ub=1.0,  vtype=GRB.CONTINUOUS, name="v_x")
         vy_vars = m.addVars(np.arange(self.horizon-1), lb=-2.5, ub=2.5,  vtype=GRB.CONTINUOUS, name="v_y")
         # omega variables
         omgx_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY,  vtype=GRB.CONTINUOUS, name="omg_x")
@@ -111,11 +127,11 @@ class MPCController:
         
         # set objective function
         m.setObjective(gp.quicksum((self.local_points[h][0] - x_vars[h])**2 for h in range(self.horizon)) 
-                       + gp.quicksum((self.local_points[h][1] - y_vars[h])**2 for h in range(self.horizon)) 
-                       + gp.quicksum((vx_vars[h+1]- vx_vars[h])**2 for h in range(self.horizon - 2)) 
-                       + gp.quicksum((vy_vars[h+1]- vy_vars[h])**2 for h in range(self.horizon - 2)) 
-                       + gp.quicksum((omgx_vars[h+1]- omgx_vars[h])**2 for h in range(self.horizon - 2)) 
-                       + gp.quicksum((omgy_vars[h+1]- omgy_vars[h])**2 for h in range(self.horizon - 2)), GRB.MINIMIZE)
+                    + gp.quicksum((self.local_points[h][1] - y_vars[h])**2 for h in range(self.horizon)) 
+                    + gp.quicksum((vx_vars[h+1]- vx_vars[h])**2 for h in range(self.horizon - 2)) 
+                    + gp.quicksum((vy_vars[h+1]- vy_vars[h])**2 for h in range(self.horizon - 2)) 
+                    + gp.quicksum((omgx_vars[h+1]- omgx_vars[h])**2 for h in range(self.horizon - 2)) 
+                    + gp.quicksum((omgy_vars[h+1]- omgy_vars[h])**2 for h in range(self.horizon - 2)), GRB.MINIMIZE)
         # m.setObjective(gp.quicksum((self.transformed_points[h][0] - x_vars[h])**2 for h in range(self.horizon)) 
         #                + gp.quicksum((self.transformed_points[h][1] - y_vars[h])**2 for h in range(self.horizon)), GRB.MINIMIZE)
 
