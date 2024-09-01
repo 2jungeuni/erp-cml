@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 import rospy
 import numpy as np
 import gurobipy as gp
@@ -49,9 +50,8 @@ class MPCController:
         self.y0 = 0.0
         self.theta0 = 0.0
         self.marker_id = 0        
-        self.angles = np.linspace(0, np.pi, 100)
-        self.our_points = [(0.01*i, 0.01*i) for i in range(500)] + [(5 - 0.01*i, 5 + 0.01*i) for i in range(500)]
-        self.start = False
+        self.start = True
+        self.reference = deque(maxlen=50)
 
     def odom_update(self, data):
         self.odom_pose = data.pose.pose
@@ -63,34 +63,23 @@ class MPCController:
                                         self.get_yaw_from_quaternion(self.odom_pose.orientation)  # world
         # print("current position:",self.x0, self.y0, self.theta0)
 
-        # self.global_points = [(point.x, point.y) for point in data.points]
-        self.local_points = [(point.x, point.y) for point in data.points]
-        # self.local_points = self.local_points(self.global_points, self.x0, self.y0, self.theta0)
+        self.global_points = [(point.x, point.y) for point in data.points]
+        self.reference.append(self.global_points)
+        # print(self.reference)
+        self.local_points = self.global2local(self.global_points, self.x0, self.y0, self.theta0)
+        self.publish_points(self.global_points)
+        closest_set = self.find_closest_reference_set()
+        waypoint = self.global2local(closest_set, self.x0, self.y0, self.theta0)
+        print("waypoint:", waypoint)
 
 
-        # if self.marker_id < 50:
-        #     self.local_points = [(0.1 * h, 0) for h in range(self.horizon)]
-        # else:
-        #     self.local_points = [(0.1 * h, 0) for h in range(self.horizon)]
-        # self.local_points = [(point.x, point.y) for point in data.points]
-        # self.global_points = self.transform_points(self.local_points, self.x0, self.y0, self.theta0)
-        # self.global_points = self.our_points[self.marker_id: self.marker_id + self.horizon]
-        # self.local_points = self.global2local(self.global_points, self.x0, self.y0, self.theta0)
-        # print(self.global_points)
-        self.global_points = self.local2global(self.local_points, self.x0, self.y0, self.theta0)
-        self.publish_global_points()
-        if self.start:
-            print("running")
-            self.run_mpc()
-        else:
-            return
+        self.run_mpc() if self.start else None
 
     def command_callback(self, data):
         if data.data == 1:
             self.start = True
         elif data.data == 0:
             self.start = False
-        print(self.start)
             
 
     def run_mpc(self):
@@ -105,7 +94,7 @@ class MPCController:
         x_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY, vtype=GRB.CONTINUOUS, name="x")
         y_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY, vtype=GRB.CONTINUOUS, name="y")
         # v variables
-        vx_vars = m.addVars(np.arange(self.horizon-1), lb=0.0, ub=1.0,  vtype=GRB.CONTINUOUS, name="v_x")
+        vx_vars = m.addVars(np.arange(self.horizon-1), lb=0.0, ub=0.5,  vtype=GRB.CONTINUOUS, name="v_x")
         vy_vars = m.addVars(np.arange(self.horizon-1), lb=-2.5, ub=2.5,  vtype=GRB.CONTINUOUS, name="v_y")
         # omega variables
         omgx_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY,  vtype=GRB.CONTINUOUS, name="omg_x")
@@ -158,10 +147,10 @@ class MPCController:
             
             theta = 0.0 if np.round(vx_vals[0], 5) == 0 else np.tanh(np.round(vy_vals[0], 5) / np.round(vx_vals[0], 5))
 
-            print("Waypoints:  ", self.local_points)
-            print(vx_vals, vy_vals)
-            print("speed = ", np.sqrt(vx_vals[0]**2 + vy_vals[0]**2))
-            print("theta = ", theta)
+            # print("Waypoints:  ", self.local_points)
+            # print(vx_vals, vy_vals)
+            # print("speed = ", np.sqrt(vx_vals[0]**2 + vy_vals[0]**2))
+            # print("theta = ", theta)
             # print("vx")
             # print(vx_vals)
             # print("vy")
@@ -177,13 +166,34 @@ class MPCController:
             self.pub.publish(control_cmd)
         else:
             sys.exit()
+    
 
+    def find_closest_reference_set(self):
+        # 현재 위치
+        current_position = (self.x0, self.y0)
 
-    def publish_global_points(self):
+        # 초기화: 가장 작은 거리와 그에 해당하는 리스트를 설정
+        min_distance = float('inf')
+        closest_set = None
+
+        # 각 reference 세트에 대해 첫 번째 점과의 거리 계산
+        for ref_set in self.reference:
+            first_point = ref_set[0]
+            distance = math.sqrt((first_point[0] - current_position[0]) ** 2 + (first_point[1] - current_position[1]) ** 2)
+            
+            # 가장 작은 거리를 가진 세트를 찾기
+            if distance < min_distance:
+                min_distance = distance
+                closest_set = ref_set
+        
+        # 가장 가까운 세트를 반환
+        return closest_set
+
+    def publish_points(self, points):
         """
         Publish the transformed points to RViz as a Marker
         """
-        for point in self.global_points:
+        for point in points:
             marker = Marker()
             marker.header.frame_id = "odom"
             marker.header.stamp = rospy.Time.now()
