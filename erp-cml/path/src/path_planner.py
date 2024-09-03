@@ -15,10 +15,11 @@ class Pathplanner:
 
         # #line
         # self.waypoints = [( 0.1 * i, 1) for i in range(500)]
-        # sine
+        # # sine
         self.waypoints = self.generate_sine_wave_waypoints()
 
-
+        # # Generate infinity loop waypoints
+        # self.waypoints = self.generate_infinity_loop_waypoints()
 
     def generate_sine_wave_waypoints(self):
         """
@@ -34,6 +35,20 @@ class Pathplanner:
 
         x_values = np.linspace(x_start, x_end, num_points)
         y_values = amplitude * np.sin(frequency * x_values + phase)
+
+        waypoints = list(zip(x_values, y_values))
+        return waypoints
+
+    def generate_infinity_loop_waypoints(self):
+        """
+        Generate waypoints along an infinity loop (lemniscate of Gerono).
+        """
+        num_points = 1000  # Number of points
+        a = 50  # Scaling factor
+
+        t_values = np.linspace(0, 2 * np.pi, num_points)
+        x_values = a * np.sin(t_values)
+        y_values = a * np.sin(t_values) * np.cos(t_values)
 
         waypoints = list(zip(x_values, y_values))
         return waypoints

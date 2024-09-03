@@ -14,6 +14,7 @@ import signal
 from datetime import datetime
 import pandas as pd
 
+
 # x, y 위치 데이터를 저장할 리스트 초기화
 x_data = []
 y_data = []
