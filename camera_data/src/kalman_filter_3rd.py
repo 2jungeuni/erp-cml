@@ -37,8 +37,6 @@ def kalman_filter(x, z, P, R, step):
     #     R = np.diag(1000 * np.ones(3))
     #     z = np.zeros((3,1))
     
-    
-    
     # (2) Correction - measurement update
     K = P_ @ H @ np.linalg.inv(H @ P_ @ H.T + R)
     # print(K)
@@ -46,10 +44,12 @@ def kalman_filter(x, z, P, R, step):
     x_esti = x_ + K @ (z - H @ x_)
     # (4) Error Covariance.
     P = P_ - K @ H @ P_
-    
-    # print(z)
-    # print(x_)
-    # print(x_esti)
+    # print("R\n", R)
+    # print("prev_x\n", (np.eye(6) - K@H)@x_)
+    # print("z\n", z)
+    # print("measurement\n", K@z)
+
+    # print("x_esti in function\n", x_esti)
     
     return x_esti, P_
 

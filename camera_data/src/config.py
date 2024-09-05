@@ -44,10 +44,10 @@ REF_POINT = np.array([80, 0, 0]).astype(np.float32)
 
 
 # BEV
-world_x_max = 250 # (cm)
+world_x_max = 200 # (cm)
 world_x_min = 100
-world_y_max = 70
-world_y_min = -70
+world_y_max = 100
+world_y_min = -100
 bev_x = 300
 bev_y = 500
 bev_pts = ((150, 420), (160, 420), (170, 420), (180, 420), (190, 420)) # for test
@@ -59,11 +59,20 @@ x_px_in_world = (world_x_max - world_x_min) / bev_x
 y_px_in_world = (world_y_max - world_y_min) / bev_y
 
 # Lane filtering
-lane_width_world = 75
-lane_thickness = 5*3
+lane_width_world = 77
+lane_thickness_world = 5*3 #! x3 because of dilate makes lane wider
 lane_width_bev =  lane_width_world / ((world_y_max - world_y_min) / bev_x)
 max_angle_init = 100
 min_angle_init = 80
 min_abs_distance_l = min_abs_distance_r = 25
 min_angle_diff = 10
-validate_lane_endpt_diff = int(lane_thickness / x_px_in_world)
+validate_lane_endpt_diff = int(lane_thickness_world / x_px_in_world)
+
+# sliding window
+window_width = validate_lane_endpt_diff * 3
+window_height = 10
+margin = 100 # (int): 윈도우 이동 시 허용할 좌우 범위
+min_pix = 30 # (int): 윈도우 내에서 차선 점으로 인식할 최소 픽셀 수
+straight_threshold = validate_lane_endpt_diff
+curvature_threshold = 10.0  # 곡률 변화 허용치
+max_curvature = 1.0  # 허용되는 최대 곡률 (1/m)

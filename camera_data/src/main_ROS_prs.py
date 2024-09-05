@@ -39,6 +39,17 @@ class PosePublisher:
         self.final = None
         self.depth_image = None
 
+        self.new_curvature_l = 0
+        self.new_curvature_r = 0
+        
+        self.sw_cur_coef_l = None
+        self.sw_cur_coef_r = None
+        self.cur_l_pts = None
+        self.cur_r_pts = None
+        self.a_history = []
+        self.sw_no_update = 0
+        self.lane_missed = False
+        
         self.rgb_info_sub = rospy.Subscriber("/camera/color/camera_info", CameraInfo, self.camera_info_callback, "rgb")
         self.rgb_raw_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
         self.depth_raw_sub = rospy.Subscriber("/camera/aligned_depth_to_color/image_raw", Image, self.depth_callback)
@@ -49,6 +60,7 @@ class PosePublisher:
         self.decimation = rs.decimation_filter()
         self.spatial = rs.spatial_filter()
         self.temporal = rs.temporal_filter()
+        
         
     def camera_info_callback(self, data, camera_type):
         if camera_type == "rgb" and not self.rgb_info:
@@ -72,8 +84,11 @@ class PosePublisher:
             print(e)
             return
         #--------------------------------
+        original_img = cv_rgb.copy()
         rgb_intrinsic = np.array(self.rgb_info.K).reshape(3, 3)
         bev_pts = world_to_img_pts(cv_rgb, rgb_intrinsic)
+
+        bev, inv_matrix = BEV(original_img, bev_pts)
         
         
         if self.lane_det_main(cv_rgb, bev_pts) == None:
@@ -91,7 +106,10 @@ class PosePublisher:
         img_pts = cv2.perspectiveTransform(bevpts, inv_matrix).astype(int)
         img_pts = img_pts[:, 0, :].astype(int)
         indices = np.linspace(0, len(img_pts) - 1, 10, dtype=int)
-        sampled_points = img_pts[-10:]
+        sampled_points = img_pts[indices]   # 중간중간 10개 뽑아오기
+        # sampled_points = img_pts[-10:]      # 맨 앞쪽 10개 지점만 뽑아오기
+
+
         # print(sampled_points)
 
         refpose = ReferencePoses()
@@ -126,28 +144,37 @@ class PosePublisher:
         cv2.imshow('Final', self.final)
         
         cv2.waitKey(1)
-        
-
 
     def lane_det_main(self, raw_img, bev_pts):
         # cv2.imshow('raw_img', raw_img)
         # print(f"--------{config.q}--------")
         gray = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
         bev, inv_matrix = BEV(gray, bev_pts)
-        cv2.imshow('bev', bev)
-        canny_dilate = preprocessing_newnew(bev)
+        # cv2.imshow('bev', bev)
+        canny_dilate_cp, bin = preprocessing_newnew(bev)
+        # canny_dilate, bin = preprocessing_newnew(bev, sw=True)
+        bin_copy = bin.copy()
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
         cv2.waitKey(1)
-
         if config.initial_not_found:
             # print("@@@@@@@@@ FINDING INITIAL LANE @@@@@@@@@")
-            lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section_initial(canny_dilate, self.no_line_cnt)
-            # R = np.zeros((6, 1))
+            # self.prev_Q_l = None
+            # self.prev_Q_r = None
+            lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section_initial(canny_dilate_cp, self.no_line_cnt)
         else:
             # print("@@@@@@@@@ INITIAL LANE FOUND @@@@@@@@@")
-            lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section(canny_dilate, self.prev_Q_l, self.prev_Q_r, self.no_line_cnt)
+            if len(self.a_history) > 15:
+                self.a_history.pop(0)
+            self.new_curvature_l, self.new_curvature_r, self.sw_cur_coef_l, self.sw_cur_coef_r, self.cur_l_pts, self.cur_r_pts = sliding_window(bin, self.prev_Q_l, self.prev_Q_r, self.new_curvature_l, self.new_curvature_r, self.sw_cur_coef_l, self.sw_cur_coef_r, self.cur_l_pts, self.cur_r_pts, self.a_history, self.sw_no_update)                        
+            lines_in_section, lines_in_section_img, Q_l, Q_r = extract_lines_in_section(canny_dilate_cp, self.prev_Q_l, self.prev_Q_r, self.no_line_cnt)
+            Q_l, Q_r = merge(bin_copy, self.prev_Q_l, self.prev_Q_r, self.sw_cur_coef_l, self.sw_cur_coef_r, Q_l, Q_r, self.a_history)
+
             R = R_set_considering_control_points(Q_l, Q_r, self.prev_esti, self.no_line_cnt)
-        
+
+            self.lane_missed = check_Q(Q_l, Q_r)
+            if self.lane_missed:
+                print("!!!!!!!!!!!!!! Lane missed")
+
         no_line_cnt_update(self.no_line_cnt, lines_in_section)
         if config.initial_not_found: #! If initial lane not found, skip everything below
             print(f"Initial lane not found: {self.x_esti}")
@@ -187,12 +214,14 @@ class PosePublisher:
         # print(z_meas)
         
         self.x_esti, self.P = kalman_filter(self.x_esti, z_meas, self.P, R, config.q) #!!!
+        # print(self.x_esti)
         self.prev_esti = copy.deepcopy(self.x_esti)
         # print("@@Updated@", self.x_esti)
         new_Q_l = self.x_esti[0:len(config.section_list)].tolist()
         new_Q_r = self.x_esti[len(config.section_list):len(config.section_list)*2].tolist()
         new_Q_l = [[int(new_Q_l[i][j]) for j in range(len(new_Q_l[i]))] for i in range(len(new_Q_l))]
         new_Q_r = [[int(new_Q_r[i][j]) for j in range(len(new_Q_r[i]))] for i in range(len(new_Q_r))]
+
         for i in range(len(new_Q_l)):
             new_Q_l[i].append(config.section_list[i])
             new_Q_r[i].append(config.section_list[i])
@@ -203,11 +232,12 @@ class PosePublisher:
         # cv2.imwrite("vis/"+str(config.q)+".png", lines_in_section_img)
 
         
+        #* B-spline
         img = np.zeros((500, 300, 3), dtype=np.uint8) # B-spline img
         bspline_img, bspline_est_left_pts = bspline(new_Q_l, bev, (0, 255, 0)) # estimation
         bspline_img, bspline_est_right_pts = bspline(new_Q_r, bspline_img, (0, 255, 0)) # estimation
-        bspline_img, bspline_meas_left_pts = bspline(Q_l, bspline_img, (0, 0, 255)) # measurement
-        bspline_img, bspline_meas_right_pts = bspline(Q_r, bspline_img, (0, 0, 255)) # measurement
+        # bspline_img, bspline_meas_left_pts = bspline(Q_l, bspline_img, (0, 0, 255)) # measurement
+        # bspline_img, bspline_meas_right_pts = bspline(Q_r, bspline_img, (0, 0, 255)) # measurement
         
         # For merging two images
         img, bspline_left_pts = bspline(new_Q_l, img, (0, 255, 0)) # estimation
@@ -224,24 +254,23 @@ class PosePublisher:
             newwarp1 = cv2.warpPerspective(img, inv_matrix, (raw_img.shape[1], raw_img.shape[0]))
             self.final = cv2.addWeighted(raw_img, 1, newwarp1, 1, 0) # original 이미지에 복구한 이미지 합성
             
-            
             # cv2.imshow('B-spline', img)
-            # cv2.imshow('Final', self.final)
+            cv2.imshow('Final', self.final)
             # cv2.imwrite("visualizations/unist_final/"+str(config.q)+".jpg", final)
-        
+
         
         self.frame_count += 1
         if self.frame_count % 100 == 0:
             end_time = time.time()
             fps = self.frame_count / (end_time - self.start_time)
-            # print("Processed {0} frames in {1:.2f} seconds, approx FPS: {2:.2f}".format(self.frame_count, end_time - self.start_time, fps))
+            print("Processed {0} frames in {1:.2f} seconds, approx FPS: {2:.2f}".format(self.frame_count, end_time - self.start_time, fps))
             self.frame_count = 0
             self.start_time = time.time()
-            # cv2.waitKey(1000)
+            # cv2.waitKey(2000)
         cv2.waitKey(1)
 
         config.q += 1 #* for drawing
-        # print("--------")
+        print("--------")
 
         return new_Q_l, new_Q_r, bspline_est_left_pts, bspline_est_right_pts, inv_matrix   
 
