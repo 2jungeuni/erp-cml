@@ -110,14 +110,14 @@ class MPCController:
         a = np.linalg.lstsq(A, y, rcond=None)[0][0]
         # Create the quadratic polynomial function
         def quadratic_poly(x):
-            return a * x**2 #+ b * x
+            return a * x**2 # b * x
         # Generate x values for plotting the fitted curve, starting from 0
-        x_fit = np.linspace(0, max(x), 100)
+        x_fit = np.linspace(0, max(x), 90)
         # Generate y values based on the fitted quadratic polynomial
         y_fit = quadratic_poly(x_fit)
         # Combine x_fit and y_fit into a list of [x, y] pairs
         xy_fit = [[x, y] for x, y in zip(x_fit, y_fit)]
-        return xy_fit
+        return xy_fit[::3]
             
     def interpolation(self, reference_points):
         reference_points = [(0.0, 0.0)] + reference_points

@@ -88,7 +88,7 @@ def preprocessing(bev, iteration, max_val_queue, iteration_interval=100):
     # cv2.imshow("thres2", thres2)
 
     canny_dilate = cv2.Canny(thres2, 0, 255)
-    cv2.imshow("canny_dilate", canny_dilate)
+    # cv2.imshow("canny_dilate", canny_dilate)
 
     num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(canny_dilate)
     new_binary_img = np.zeros_like(canny_dilate)
@@ -115,7 +115,7 @@ def calculate_curvature(pts):
 def is_continuous(img, pts, max_gap=200):
     for i in range(1, len(pts)):
         if np.linalg.norm(np.array(pts[i]) - np.array(pts[i-1])) > max_gap:
-            print(pts[i])
+            # print(pts[i])
             cv2.circle(img, pts[i], radius=10, color=(203, 192, 255), thickness=1)
             # print("IS CONTINUOS:", np.linalg.norm(np.array(pts[i]) - np.array(pts[i-1])))
             return False
@@ -328,10 +328,10 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
         
         # 차선 폭이 허용 범위 내에 있는지 판단
         if (config.lane_width_bev - config.lane_width_bev * tolerance) <= mean_lane_width <= (config.lane_width_bev + config.lane_width_bev * tolerance):
-            print(f"\t차선 폭 OK: {mean_lane_width} 픽셀 (허용 범위: {config.lane_width_bev} ± {tolerance} 픽셀)")
+            # print(f"\t차선 폭 OK: {mean_lane_width} 픽셀 (허용 범위: {config.lane_width_bev} ± {tolerance} 픽셀)")
             return True
         else:
-            print(f"\t차선 폭 X: {mean_lane_width} 픽셀 (허용 범위: {config.lane_width_bev} ± {tolerance} 픽셀)")
+            # print(f"\t차선 폭 X: {mean_lane_width} 픽셀 (허용 범위: {config.lane_width_bev} ± {tolerance} 픽셀)")
             return False
 
     def history_state_comparison(l_coef, a_history):
@@ -356,14 +356,14 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
             current_state = "straight"
         else:
             if l_coef.c[0] < 0:
-                print("left_curve", l_coef.c[0])
+                # print("left_curve", l_coef.c[0])
                 current_state = "left_curve"
             else:
-                print("right_curve", l_coef.c[0])
+                # print("right_curve", l_coef.c[0])
                 current_state = "right_curve"
             
-        print("\t",estimated_current_state)
-        print("\t",current_state)
+        # print("\t",estimated_current_state)
+        # print("\t",current_state)
         
         if current_state != estimated_current_state:
             return False, current_state, estimated_current_state
@@ -372,11 +372,11 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
         
     def coef_thres_check(l_coef, r_coef, current_state, estimated_current_state):
         if l_coef.c[2] - r_coef.c[2] > config.lane_width_bev + 30:
-            print("Too large 'c'")
+            # print("Too large 'c'")
             return False
         
         if l_coef.c[0] * r_coef.c[0] < 0:
-            print("Diff 'a'")
+            # print("Diff 'a'")
             return False
         
         if estimated_current_state == "straight":
@@ -393,7 +393,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
             r_b_check = abs(r_coef.c[1]) < b_thres
             r_c_check = r_coef.c[2] > r_c_thres
             
-            print(l_a_check, r_a_check, l_b_check, r_b_check, l_c_check, r_c_check)
+            # print(l_a_check, r_a_check, l_b_check, r_b_check, l_c_check, r_c_check)
             if l_a_check and l_b_check and l_c_check and r_a_check and r_b_check and r_c_check:
                 return True
             else:
@@ -552,7 +552,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
                     r_coef = np.poly1d([l_coef.c[0], l_coef.c[1], l_coef.c[2] + config.lane_width_bev])
                     is_lane_feasible = evaluate_lane_width(l_coef, r_coef)
                     if is_lane_feasible:
-                        print("\tWidth OK after copying left lane")
+                        # print("\tWidth OK after copying left lane")
                         right_x_new = left_x_new + config.lane_width_bev
                         right_y_new = left_y_new
                         cur_r_curvature = cur_l_curvature
@@ -563,7 +563,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
                     l_coef = np.poly1d([r_coef.c[0], r_coef.c[1], r_coef.c[2] + config.lane_width_bev])
                     is_lane_feasible = evaluate_lane_width(l_coef, r_coef)
                     if is_lane_feasible:
-                        print("\tWidth OK after copying right lane")
+                        # print("\tWidth OK after copying right lane")
                         left_x_new = right_x_new + config.lane_width_bev
                         left_y_new = right_y_new
                         cur_l_curvature = cur_r_curvature
@@ -581,7 +581,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
         # epsilon_b = 0.2
         parallel_check = abs(l_coef.c[0] - r_coef.c[0]) < epsilon_a and r_coef.c[2] - l_coef.c[2] > 30 # and abs(l_coef.c[1] - r_coef.c[1]) < epsilon_b
         if not parallel_check: # if not parallel, use prev
-            print("\t평행 X.")
+            # print("\t평행 X.")
             l_survived = False
             r_survived = False
 
@@ -591,7 +591,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
                     r_coef = np.poly1d([l_coef.c[0], l_coef.c[1], l_coef.c[2] + config.lane_width_bev])
                     is_lane_feasible = evaluate_lane_width(l_coef, r_coef)
                     if is_lane_feasible:
-                        print("\tParallel OK after copying left lane")
+                        # print("\tParallel OK after copying left lane")
                         right_x_new = left_x_new + config.lane_width_bev
                         right_y_new = left_y_new
                         cur_r_curvature = cur_l_curvature
@@ -602,7 +602,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
                     l_coef = np.poly1d([r_coef.c[0], r_coef.c[1], r_coef.c[2] + config.lane_width_bev])
                     is_lane_feasible = evaluate_lane_width(l_coef, r_coef)
                     if is_lane_feasible:
-                        print("\tParallel OK after copying right lane")
+                        # print("\tParallel OK after copying right lane")
                         left_x_new = right_x_new + config.lane_width_bev
                         left_y_new = right_y_new
                         cur_l_curvature = cur_r_curvature
@@ -626,7 +626,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
         right_y_new = left_y_new  # y 좌표는 그대로 유지
         cur_r_curvature = cur_l_curvature
         
-        print("\t차선 r이 불안정하여 차선 l을 이동시켜 대체.")
+        # print("\t차선 r이 불안정하여 차선 l을 이동시켜 대체.")
         
         #- text = "copy l"
         #- org = (50, 200)
@@ -640,7 +640,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
         left_y_new = right_y_new  # y 좌표는 그대로 유지
         cur_l_curvature = cur_r_curvature
         
-        print("\t차선 l이 불안정하여 차선 r을 이동시켜 대체.")
+        # print("\t차선 l이 불안정하여 차선 r을 이동시켜 대체.")
         
         #- text = "copy r"
         #- org = (50, 250)
@@ -653,13 +653,13 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
             history_check, current_state, estimated_current_state = history_state_comparison(l_coef, a_history)
             if history_check:
                 if estimated_current_state == "left_curve" and current_state == "right_curve":
-                    print("\tHistory check failed")
+                    # print("\tHistory check failed")
                     a_history.append(prev_coef_l.c[0])
                 elif estimated_current_state == "right_curve" and current_state == "left_curve":
-                    print("\tHistory check failed")
+                    # print("\tHistory check failed")
                     a_history.append(prev_coef_l.c[0])
                 else:
-                    print("\tHistory check passed")
+                    # print("\tHistory check passed")
                     a_history.append(l_coef.c[0])
                 
                 #- text = "pass"
@@ -667,7 +667,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
                 #- output_image_after_valid = cv2.putText(output_image_after_valid, text, org, font, font_scale, color, thickness, cv2.LINE_AA)
             
             else:
-                print("\tHistory check failed")
+                # print("\tHistory check failed")
                 
                 l_survived = False
                 r_survived = False
@@ -682,7 +682,7 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
     #* 각 계수 한계점 확인.
     if l_survived and r_survived and len(a_history) == 16:
         if not coef_thres_check(l_coef, r_coef, current_state, estimated_current_state):
-            print("\tCoef thres check failed")
+            # print("\tCoef thres check failed")
             l_survived = False
             r_survived = False
         else:
@@ -708,8 +708,8 @@ def sliding_window(canny_dilate, start_points_l, start_points_r, prev_curvature_
 
         
     # cv2.imshow("SW points", output_image_poly)
-    cv2.imshow('SW', output_image) # contains points found by SW
-    cv2.imshow('Method 2', output_image_after_valid) # after all checks (either prev or cur lanes)
+    # cv2.imshow('SW', output_image) # contains points found by SW
+    # cv2.imshow('Method 2', output_image_after_valid) # after all checks (either prev or cur lanes)
     # cv2.imwrite("sw/"+str(config.idx)+".png", output_image_poly)
     # cv2.imwrite("s/"+str(config.idx)+".png", output_image_after_valid)
     # print(config.idx)
@@ -872,9 +872,9 @@ def filter_lines(lines, prev_Q_l, prev_Q_r, current_section, temp2, temp, no_lin
                     angle_l = angle(closest_l_line[0], closest_l_line[1], closest_l_line[2], closest_l_line[3])
                     angle_r = angle(closest_r_line[0], closest_r_line[1], closest_r_line[2], closest_r_line[3])
                     if not (config.lane_width_bev * 0.8 <= distance_bw_cur_lanes <= config.lane_width_bev * 1.2 and abs(angle_l - angle_r) < 10):
-                        print(f"S({current_section}) Lanes are found, but deleted because of either non-parallelism and width")
-                        print(f"\t{distance_bw_cur_lanes}, {angle_l}, {angle_r}")
-                        print(f"\tdist_diff: {config.lane_width_bev * 0.8 <= distance_bw_cur_lanes <= config.lane_width_bev * 1.2}, ang_diff: {abs(angle_l - angle_r) < 10}")
+                        # print(f"S({current_section}) Lanes are found, but deleted because of either non-parallelism and width")
+                        # print(f"\t{distance_bw_cur_lanes}, {angle_l}, {angle_r}")
+                        # print(f"\tdist_diff: {config.lane_width_bev * 0.8 <= distance_bw_cur_lanes <= config.lane_width_bev * 1.2}, ang_diff: {abs(angle_l - angle_r) < 10}")
                         closest_l_line = []
                         closest_r_line = []
                 #****** 2024.08.08       
@@ -946,9 +946,9 @@ def validate_lane(temp2, temp, all_lines):
         lower_line_ang = angle(all_lines[1][0][0], all_lines[1][0][1], all_lines[1][0][2], all_lines[1][0][3])
         if abs(upper_line_ang - lower_line_ang) < config.min_angle_diff and abs(all_lines[0][0][2] - all_lines[1][0][0]) > config.validate_lane_endpt_diff:
             # if section lines are tend to be parallel but located far from each other, remove
-            print("(L) Far from each other --> Deleted")
-            print(f"\t{abs(upper_line_ang - lower_line_ang)} < {config.min_angle_diff}, {abs(all_lines[0][0][2] - all_lines[1][0][0])} > config.validate_lane_endpt_diff")
-            print(f"\t{abs(upper_line_ang - lower_line_ang) < config.min_angle_diff}, {abs(all_lines[0][0][2] - all_lines[1][0][0]) > config.validate_lane_endpt_diff}")
+            # print("(L) Far from each other --> Deleted")
+            # print(f"\t{abs(upper_line_ang - lower_line_ang)} < {config.min_angle_diff}, {abs(all_lines[0][0][2] - all_lines[1][0][0])} > config.validate_lane_endpt_diff")
+            # print(f"\t{abs(upper_line_ang - lower_line_ang) < config.min_angle_diff}, {abs(all_lines[0][0][2] - all_lines[1][0][0]) > config.validate_lane_endpt_diff}")
             cv2.line(temp, (all_lines[0][0][0], all_lines[0][0][1]), (all_lines[0][0][2], all_lines[0][0][3]), (0, 255, 0), 2)
             cv2.line(temp, (all_lines[1][0][0], all_lines[1][0][1]), (all_lines[1][0][2], all_lines[1][0][3]), (0, 255, 0), 2)
             all_lines[0][0] = []
@@ -959,9 +959,9 @@ def validate_lane(temp2, temp, all_lines):
         lower_line_ang = angle(all_lines[1][1][0], all_lines[1][1][1], all_lines[1][1][2], all_lines[1][1][3])
         if abs(upper_line_ang - lower_line_ang) < config.min_angle_diff and abs(all_lines[0][1][2] - all_lines[1][1][0]) > config.validate_lane_endpt_diff:
             # if section lines are tend to be parallel but located far from each other, remove
-            print("(R) Far from each other --> Deleted")
-            print(f"\t{abs(upper_line_ang - lower_line_ang)} < {config.min_angle_diff}, {abs(all_lines[0][1][2] - all_lines[1][1][0])} > config.validate_lane_endpt_diff")
-            print(f"\t{abs(upper_line_ang - lower_line_ang) < config.min_angle_diff}, {abs(all_lines[0][1][2] - all_lines[1][1][0]) > config.validate_lane_endpt_diff}")
+            # print("(R) Far from each other --> Deleted")
+            # print(f"\t{abs(upper_line_ang - lower_line_ang)} < {config.min_angle_diff}, {abs(all_lines[0][1][2] - all_lines[1][1][0])} > config.validate_lane_endpt_diff")
+            # print(f"\t{abs(upper_line_ang - lower_line_ang) < config.min_angle_diff}, {abs(all_lines[0][1][2] - all_lines[1][1][0]) > config.validate_lane_endpt_diff}")
             cv2.line(temp, (all_lines[0][1][0], all_lines[0][1][1]), (all_lines[0][1][2], all_lines[0][1][3]), (0, 255, 0), 2)
             cv2.line(temp, (all_lines[1][1][0], all_lines[1][1][1]), (all_lines[1][1][2], all_lines[1][1][3]), (0, 255, 0), 2)
             all_lines[0][1] = []
@@ -1145,7 +1145,7 @@ def merge(bin, prev_Q_l, prev_Q_r, sw_cur_coef_l, sw_cur_coef_r, Q_l, Q_r, a_his
         control_points_filtered = [point for point in control_points if point]
         
         if len(control_points_filtered) < 2:
-            print("Not enough points to form a valid polynomial.")
+            # print("Not enough points to form a valid polynomial.")
             return None
         
         # numpy array로 변환
@@ -1168,7 +1168,7 @@ def merge(bin, prev_Q_l, prev_Q_r, sw_cur_coef_l, sw_cur_coef_r, Q_l, Q_r, a_his
         '''
         
         if current_poly_left is None or current_poly_right is None:
-            print("\tSW chosen.")
+            # print("\tSW chosen.")
             #todo if a diff, use prev
             return sw_cur_coef_l, sw_cur_coef_r
     
@@ -1301,7 +1301,7 @@ def merge(bin, prev_Q_l, prev_Q_r, sw_cur_coef_l, sw_cur_coef_r, Q_l, Q_r, a_his
 # -------------------- method functions(해당 파일 안에서 호출) ---------------------------------
 
 def check_Q(Q_l, Q_r):
-    print(Q_l, Q_r)
+    # print(Q_l, Q_r)
     for i in range(len(Q_l)):
         width = abs(Q_l[i][0] - Q_r[i][0])
         if config.lane_width_bev - 30 < width < config.lane_width_bev + 30:

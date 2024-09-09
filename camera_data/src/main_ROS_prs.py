@@ -124,7 +124,7 @@ class PosePublisher:
             region = cv_depth[j-1:j+2, i-1:i+2]
             depth_value = np.mean(region) * 0.1
 
-            print("depth", depth_value)
+            # print("depth", depth_value)
             f = (rgb_intrinsic[0, 0] + rgb_intrinsic[1, 1]) / 2
             theta = np.arctan(np.sqrt((i - rgb_intrinsic[0, 2])**2 + (j - rgb_intrinsic[1, 2])**2) / f)
             Z_c = depth_value * np.cos(theta)
@@ -155,7 +155,7 @@ class PosePublisher:
         # canny_dilate, bin = preprocessing_newnew(bev, sw=True)
         bin_copy = bin.copy()
         bev = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
-        cv2.waitKey(1)
+        # cv2.waitKey(1)
         if config.initial_not_found:
             # print("@@@@@@@@@ FINDING INITIAL LANE @@@@@@@@@")
             # self.prev_Q_l = None
@@ -263,14 +263,14 @@ class PosePublisher:
         if self.frame_count % 100 == 0:
             end_time = time.time()
             fps = self.frame_count / (end_time - self.start_time)
-            print("Processed {0} frames in {1:.2f} seconds, approx FPS: {2:.2f}".format(self.frame_count, end_time - self.start_time, fps))
+            # print("Processed {0} frames in {1:.2f} seconds, approx FPS: {2:.2f}".format(self.frame_count, end_time - self.start_time, fps))
             self.frame_count = 0
             self.start_time = time.time()
             # cv2.waitKey(2000)
-        cv2.waitKey(1)
+        # cv2.waitKey(1)
 
         config.q += 1 #* for drawing
-        print("--------")
+        # print("--------")
 
         return new_Q_l, new_Q_r, bspline_est_left_pts, bspline_est_right_pts, inv_matrix   
 
