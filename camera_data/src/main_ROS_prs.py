@@ -118,7 +118,6 @@ class PosePublisher:
         world_coords_list = []
         
         #! midpoint vis
-        cam_coords = np.array([cv_depth[j, i] * np.linalg.inv(rgb_intrinsic) @ np.array([i, j, 1]) for i, j in sampled_points])
         for idx, (i, j) in enumerate(sampled_points):
             # print("i,j:",i,j)
             region = cv_depth[j-1:j+2, i-1:i+2]
@@ -133,16 +132,21 @@ class PosePublisher:
 
             world_coords = config.extrinsic @ np.append(cam_coords, 1)
             world_target_point = world_coords[:3]
+
+            # depth_value가 0이거나 world_target_point[2]의 절댓값이 25를 넘어가면 (0, 0, 0)으로 설정
+            if depth_value == 0 or abs(world_target_point[2]) > 25:
+                world_target_point = np.array([0, 0, 0])
+
             world_coords_list.append(world_target_point)
             refpose.points[9-idx].x = world_target_point[0]
             refpose.points[9-idx].y = world_target_point[1]
             refpose.points[9-idx].z = world_target_point[2]
+
             cv2.circle(self.final, (i, j), 3, (0, 255, 0), -1)  # 시각화
 
         self.pos_pub.publish(refpose)
         self.image_pub.publish(bridge.cv2_to_imgmsg(self.final, encoding="bgr8"))
         cv2.imshow('Final', self.final)
-        
         cv2.waitKey(1)
 
     def lane_det_main(self, raw_img, bev_pts):

@@ -69,7 +69,7 @@ class MPCController:
                                         self.get_yaw_from_quaternion(self.odom_pose.orientation)  # world
         # self.local_points = [(point.x, point.y) for point in data.points] # change unit from cm to m
         self.local_points = [(0.01 * point.x, 0.01 * point.y) for point in data.points] # change unit from cm to m
-        self.ref = self.fit_quadratic_through_origin(self.local_points)
+        self.ref = self.fit_cubic_through_origin_and_point(self.local_points)
         # print("ref:  ", self.ref)
         # print("current Position:", self.x0, self.y0, self.theta0)
         # print('local_points:', self.local_points)
@@ -142,7 +142,31 @@ class MPCController:
         # 최종 결과 리스트 생성 (interpolated points와 reference points 결합)
         result = interpolated_points# + reference_points[1:]
         return result
-    
+    def fit_cubic_through_origin_and_point(self, control_points):
+        # Ensure control_points is a numpy array
+        control_points = np.array(control_points)
+        # Extracting x and y coordinates
+        x = control_points[:, 0]
+        y = control_points[:, 1]
+        # Apply the condition for (0,0) and slope = 0 at x = 0.
+        # Fit a cubic polynomial (ax^3 + bx^2) with c = 0 and d = 0 at (0,0)
+        # We solve for coefficients a and b in y = ax^3 + bx^2
+        A = np.vstack([x**3, x**2]).T
+        b = y
+        # Solve the least squares for coefficients a and b
+        coeffs = np.linalg.lstsq(A, b, rcond=None)[0]
+        a, b = coeffs[0], coeffs[1]
+        # Create the cubic polynomial function
+        def cubic_poly(x):
+            return a * x**3 + b * x**2
+        # Generate x values for plotting the fitted curve, starting from 0
+        x_fit = np.linspace(0, max(x), 120)
+        # Generate y values based on the fitted cubic polynomial
+        y_fit = cubic_poly(x_fit)
+        # Combine x_fit and y_fit into a list of [x, y] pairs
+        xy_fit = [[x, y] for x, y in zip(x_fit, y_fit)]
+        return xy_fit[::2]
+
 
     def run_mpc(self):
         # define the optimization model
@@ -153,8 +177,8 @@ class MPCController:
         x_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY, vtype=GRB.CONTINUOUS, name="x")
         y_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY, vtype=GRB.CONTINUOUS, name="y")
         # v variables
-        vx_vars = m.addVars(np.arange(self.horizon-1), lb=0.0, ub=1.0,  vtype=GRB.CONTINUOUS, name="v_x")
-        vy_vars = m.addVars(np.arange(self.horizon-1), lb=-1.0, ub=1.0,  vtype=GRB.CONTINUOUS, name="v_y")
+        vx_vars = m.addVars(np.arange(self.horizon-1), lb=0.0, ub=0.5,  vtype=GRB.CONTINUOUS, name="v_x")
+        vy_vars = m.addVars(np.arange(self.horizon-1), lb=-0.5, ub=0.5,  vtype=GRB.CONTINUOUS, name="v_y")
         # omega variables
         omgx_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY,  vtype=GRB.CONTINUOUS, name="omg_x")
         omgy_vars = m.addVars(np.arange(self.horizon), lb=-GRB.INFINITY, ub=GRB.INFINITY,  vtype=GRB.CONTINUOUS, name="omg_y")

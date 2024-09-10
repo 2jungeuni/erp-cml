@@ -44,10 +44,15 @@ REF_POINT = np.array([80, 0, 0]).astype(np.float32)
 
 
 # BEV
+# world_x_max = 200 # (cm)
+# world_x_min = 120
+# world_y_max = 80
+# world_y_min = -80
 world_x_max = 200 # (cm)
 world_x_min = 100
 world_y_max = 100
 world_y_min = -100
+
 bev_x = 300
 bev_y = 500
 bev_pts = ((150, 420), (160, 420), (170, 420), (180, 420), (190, 420)) # for test
