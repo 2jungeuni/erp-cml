@@ -32,6 +32,7 @@ include_directories(
 
 catkin_install_python(PROGRAMS
   src/turn_on_camera.py
+  src/filtering_camera.py
   src/main_ROS_prs.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
