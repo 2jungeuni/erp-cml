@@ -69,7 +69,7 @@ class MPCController:
                                         self.get_yaw_from_quaternion(self.odom_pose.orientation)  # world
         # self.local_points = [(point.x, point.y) for point in data.points] # change unit from cm to m
         self.local_points = [(0.01 * point.x, 0.01 * point.y) for point in data.points] # change unit from cm to m
-        self.ref = self.fit_cubic_through_origin_and_point(self.local_points)
+        self.ref = self.fit_weighted_quadratic_ax2(self.local_points)
         # print("ref:  ", self.ref)
         # print("current Position:", self.x0, self.y0, self.theta0)
         # print('local_points:', self.local_points)
@@ -112,12 +112,12 @@ class MPCController:
         def quadratic_poly(x):
             return a * x**2 # b * x
         # Generate x values for plotting the fitted curve, starting from 0
-        x_fit = np.linspace(0, max(x), 90)
+        x_fit = np.linspace(0, max(x), 80)
         # Generate y values based on the fitted quadratic polynomial
         y_fit = quadratic_poly(x_fit)
         # Combine x_fit and y_fit into a list of [x, y] pairs
         xy_fit = [[x, y] for x, y in zip(x_fit, y_fit)]
-        return xy_fit[::3]
+        return xy_fit[::2]
             
     def interpolation(self, reference_points):
         reference_points = [(0.0, 0.0)] + reference_points
@@ -160,13 +160,40 @@ class MPCController:
         def cubic_poly(x):
             return a * x**3 + b * x**2
         # Generate x values for plotting the fitted curve, starting from 0
-        x_fit = np.linspace(0, max(x), 120)
+        x_fit = np.linspace(0, max(x), 100)
         # Generate y values based on the fitted cubic polynomial
         y_fit = cubic_poly(x_fit)
         # Combine x_fit and y_fit into a list of [x, y] pairs
         xy_fit = [[x, y] for x, y in zip(x_fit, y_fit)]
-        return xy_fit[::2]
+        return xy_fit[::1]
 
+    def fit_weighted_quadratic_ax2(self, control_points, weight_last=10):
+        # Ensure control_points is a numpy array
+        control_points = np.array(control_points)
+        # Extracting x and y coordinates
+        x = control_points[:, 0]
+        y = control_points[:, 1]
+        # Construct the design matrix for y = ax^2
+        A = np.vstack([x**2]).T
+        # Define weights: Assign higher weight to the last point
+        weights = np.ones_like(y)
+        weights[-1] = weight_last  # Increase the weight of the last point
+        # Apply weights to A and y
+        W = np.diag(weights)
+        A_w = W @ A
+        y_w = W @ y
+        # Solve the weighted least squares for coefficient a
+        a = np.linalg.lstsq(A_w, y_w, rcond=None)[0][0]
+        # Create the quadratic polynomial function (y = ax^2)
+        def quadratic_poly(x):
+            return a * x**2
+        # Generate x values for plotting the fitted curve
+        x_fit = np.linspace(0, max(x), 30)
+        # Generate y values based on the fitted quadratic polynomial
+        y_fit = quadratic_poly(x_fit)
+        # Combine x_fit and y_fit into a list of [x, y] pairs
+        xy_fit = [[x, y] for x, y in zip(x_fit, y_fit)]
+        return xy_fit[::1]
 
     def run_mpc(self):
         # define the optimization model
